@@ -18,8 +18,16 @@ DockItem makeItem(const std::string& className, bool active, bool virtualApp) {
     return item;
 }
 
+static bool nodeHasValue(ryml::ConstNodeRef node) {
+    if (node.invalid() || node.is_seed()) return false;
+    if (!node.has_val()) return false;
+
+    auto value{node.val()};
+    return value.len > 0;
+}
+
 float nodeFloat(ryml::ConstNodeRef node, float fallback) {
-    if (node.invalid() || node.is_seed()) return fallback;
+    if (!nodeHasValue(node)) return fallback;
 
     float v{fallback};
     node >> v;
@@ -31,12 +39,14 @@ float childFloat(ryml::ConstNodeRef parent, const char* key, float fallback) {
     if (parent.invalid() || !parent.has_child(ryml::to_csubstr(key)))
         return fallback;
 
-    return nodeFloat(parent[ryml::to_csubstr(key)], fallback);
+    auto child{parent[ryml::to_csubstr(key)]};
+    return nodeFloat(child, fallback);
 }
 
 inline SidesConfig _parseSides(ryml::ConstNodeRef node,
                                const SidesConfig& def) {
     if (node.invalid() || node.is_seed()) return def;
+    if (!node.has_children()) return def;
 
     return SidesConfig{
         childFloat(node, "left", def.left),
@@ -46,6 +56,7 @@ inline SidesConfig _parseSides(ryml::ConstNodeRef node,
     };
 }
 
+// TODO: lator add hot reload support
 bool DockConfig::reloadConfig() {
     auto configPath{configFile()};
     auto& dockConfig{*this};
@@ -126,8 +137,13 @@ bool DockConfig::reloadConfig() {
                     auto item{makeItem(className, false, true)};
 
                     for (auto propertyNode : itemNode) {
-                        std::string keyStr, valStr;
-                        propertyNode >> ryml::key(keyStr) >> valStr;
+                        std::string keyStr;
+                        propertyNode >> ryml::key(keyStr);
+
+                        if (!nodeHasValue(propertyNode)) continue;
+
+                        std::string valStr;
+                        propertyNode >> valStr;
 
                         if (keyStr == "Icon") {
                             item.app.Icon = valStr;
