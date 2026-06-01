@@ -1,6 +1,7 @@
 #define NANOSVG_IMPLEMENTATION
 #define NANOSVGRAST_IMPLEMENTATION
 
+#include <chrono>
 #include <ranges>
 
 #include "config.hpp"
@@ -57,7 +58,20 @@ int main() {
         }
     };
 
+    auto lastFrame{std::chrono::steady_clock::now()};
+    float smoothedDt{1.f / 60.f};
+
     while (!ls.closed && wl.dispatch() != -1) {
+        auto now{std::chrono::steady_clock::now()};
+        float dt{std::chrono::duration<float>(now - lastFrame).count()};
+        lastFrame = now;
+
+        if (dt < 0.f) dt = 0.f;
+        if (dt > 0.03f) dt = 0.03f;
+
+        float alpha{0.2f};
+        smoothedDt += (dt - smoothedDt) * alpha;
+
         float visualDockHeight{dockConfig.padding.vertical() +
                                dockConfig.itemMargin.vertical() +
                                dockConfig.itemSize};
@@ -72,7 +86,7 @@ int main() {
         renderer.clearViewport(ls.width, ls.height);
         renderer.beginFrame(ls.width, ls.height);
 
-        handleDock(renderer.vg, iconRenderer, ls.width, ls.height);
+        handleDock(renderer.vg, iconRenderer, ls.width, ls.height, smoothedDt);
 
         renderer.endFrame();
 

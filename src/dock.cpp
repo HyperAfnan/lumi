@@ -1,13 +1,10 @@
 #include "dock.hpp"
 
-#include <chrono>
 #include <cmath>
 
 #include "app.hpp"
 #include "config.hpp"
 #include "context.hpp"
-
-using Clock = std::chrono::steady_clock;
 
 void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
                    float r) {
@@ -100,7 +97,8 @@ static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
     }
 }
 
-void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, int w, int h) {
+void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, int w, int h,
+                float dt) {
     auto& config{DockConfig::get()};
     auto& mouseCtx{MouseContext::get()};
     auto& iconIndex{IconIndex::get()};
@@ -112,8 +110,6 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, int w, int h) {
 
     float baseSize{config.itemSize};
     float spacing{config.itemSpacing};
-
-    float dt{1.f / 60.f};
 
     float estimatedWidth{config.padding.horizontal() +
                          config.itemMargin.horizontal() + itemCount * baseSize +
