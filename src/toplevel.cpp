@@ -39,11 +39,10 @@ void ToplevelContext::onHandleAppId(void* data,
     current = appId;
 
     auto& count{self.appIdCount[current]};
-    bool wasClosed{count == 0};
 
     ++count;
 
-    if (wasClosed && self.onAppOpen) self.onAppOpen(current);
+    if (self.onAppOpen) self.onAppOpen(current);
 }
 
 void ToplevelContext::onHandleClosed(void* data,

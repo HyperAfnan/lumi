@@ -39,6 +39,8 @@ int main() {
     toplevelCtx.onAppOpen = [](std::string_view appId) {
         for (auto& item : DockConfig::get().items) {
             if (item.app.matchesAppId(appId)) {
+                if (item.active) break;
+
                 item.active = true;
 
                 item.dotSpring = makeDotSpring();
@@ -52,6 +54,8 @@ int main() {
     toplevelCtx.onAppClose = [](std::string_view appId) {
         for (auto& item : DockConfig::get().items) {
             if (item.app.matchesAppId(appId)) {
+                if (!item.active) break;
+
                 item.active = false;
                 break;
             }
