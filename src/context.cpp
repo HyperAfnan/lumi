@@ -21,6 +21,8 @@ WaylandContext::WaylandContext() {
         std::exit(EXIT_FAILURE);
     }
 
+    logger::info("Wayland display connected");
+
     registry = wl_display_get_registry(display);
     wl_registry_add_listener(registry, &registryListener, this);
     roundtrip();
@@ -29,6 +31,8 @@ WaylandContext::WaylandContext() {
         logger::error("Missing wl_compositor or zwlr_layer_shell_v1");
         std::exit(EXIT_FAILURE);
     }
+
+    logger::info("Wayland globals ready");
 }
 
 WaylandContext::~WaylandContext() {
@@ -94,9 +98,11 @@ void WaylandContext::onSeatCapabilities(void* data, wl_seat* seat,
     if (hasPointer && !self.pointer) {
         self.pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(self.pointer, &pointerListener, &self);
+        logger::info("pointer capability enabled");
     } else if (!hasPointer && self.pointer) {
         wl_pointer_destroy(self.pointer);
         self.pointer = nullptr;
+        logger::warning("pointer capability disabled");
     }
 }
 

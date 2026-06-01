@@ -8,6 +8,7 @@
 #include <fstream>
 #include <vector>
 
+#include "logger.hpp"
 #include "utils.hpp"
 
 static std::vector<fs::path> appDirs{([]() {
@@ -48,7 +49,10 @@ App::App(std::string className, bool isVirtual)
         desktopFile = findDesktopFile();
 
         if (desktopFile) {
+            logger::info("using desktop file: " + desktopFile->string());
             parseDesktopFile(*desktopFile);
+        } else {
+            logger::warning("desktop file not found for app: " + className);
         }
     }
 }
@@ -107,7 +111,10 @@ bool isFieldCode(const std::string& token) {
 }
 
 void App::launch() const {
-    if (!Exec) return;
+    if (!Exec) {
+        logger::warning("missing Exec for app: " + className);
+        return;
+    }
 
     auto tokens{tokenizeExec(*Exec)};
 
@@ -123,7 +130,10 @@ void App::launch() const {
         args.push_back(std::move(token));
     }
 
-    if (args.empty()) return;
+    if (args.empty()) {
+        logger::warning("no launch args for app: " + className);
+        return;
+    }
 
     std::vector<char*> argv;
     for (auto& a : args) argv.push_back(a.data());
@@ -189,6 +199,10 @@ std::optional<fs::path> App::fuzzySearch() const {
 
 void App::parseDesktopFile(const fs::path& path) {
     std::ifstream file(path);
+    if (!file.is_open()) {
+        logger::warning("failed to open desktop file: " + path.string());
+        return;
+    }
 
     auto _foundAll = [&]() { return Icon && Exec && StartupWMClass; };
 

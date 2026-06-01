@@ -2,15 +2,24 @@
 
 #include "config.hpp"
 #include "context.hpp"
+#include "logger.hpp"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 LayerSurface::LayerSurface() {
     auto& wl{WaylandContext::get()};
 
     surface = wl_compositor_create_surface(wl.compositor);
+    if (!surface) {
+        logger::error("failed to create wl_surface");
+        return;
+    }
 
     layerSurface = zwlr_layer_shell_v1_get_layer_surface(
         wl.layerShell, surface, nullptr, ZWLR_LAYER_SHELL_V1_LAYER_TOP, "lumi");
+    if (!layerSurface) {
+        logger::error("failed to create layer surface");
+        return;
+    }
 
     zwlr_layer_surface_v1_add_listener(layerSurface, &layerSurfaceListener,
                                        this);
@@ -34,6 +43,7 @@ LayerSurface::LayerSurface() {
     zwlr_layer_surface_v1_set_margin(layerSurface, marginTop, marginRight,
                                      marginBottom, marginLeft);
 
+    logger::info("layer surface created");
     wl_surface_commit(surface);
 }
 
@@ -84,6 +94,10 @@ void LayerSurface::onConfigure(void* data, zwlr_layer_surface_v1* layerSurface,
     if (!self.eglWindow) {
         self.eglWindow =
             wl_egl_window_create(self.surface, self.width, self.height);
+        if (!self.eglWindow) {
+            logger::error("failed to create wl_egl_window");
+            return;
+        }
     } else {
         wl_egl_window_resize(self.eglWindow, self.width, self.height, 0, 0);
     }

@@ -12,17 +12,22 @@
 #include "renderer.hpp"
 #include "surface.hpp"
 #include "toplevel.hpp"
+#include "logger.hpp"
 
 int main() {
     auto& wl{WaylandContext::get()};
     auto& dockConfig{DockConfig::get()};
-    dockConfig.reloadConfig();
+    if (!dockConfig.reloadConfig()) {
+        logger::warning("using default config");
+    }
 
     LayerSurface ls{};
 
     while (!ls.eglWindow) {
         wl.dispatch();
     }
+
+    logger::info("renderer ready");
 
     GfxContext gfx(wl, ls);
     Renderer renderer;

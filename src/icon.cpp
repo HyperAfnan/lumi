@@ -57,7 +57,7 @@ int IconRenderer::load(const fs::path& path, int size) {
     } else if (path.extension() == ".png" || path.extension() == ".jpg") {
         img = loadPNG(path);
     } else {
-        logger::error("unsupported format: " + path.string());
+        logger::warning("unsupported icon format: " + path.string());
     }
 
     cache.set(key, img);
@@ -179,6 +179,7 @@ std::optional<fs::path> IconIndex::find(App& app) const {
     } else if (auto foundPath{_find(*app.Icon)}; foundPath) {
         resolvedPath = *foundPath;
     } else {
+        logger::warning("icon not found: " + *app.Icon);
         return std::nullopt;
     }
 

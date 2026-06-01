@@ -3,6 +3,7 @@
 
 #include <fstream>
 
+#include "logger.hpp"
 #include "ryml.hpp"
 #include "utils.hpp"
 
@@ -62,11 +63,15 @@ bool DockConfig::reloadConfig() {
     auto& dockConfig{*this};
 
     if (!fs::exists(configPath)) {
+        logger::warning("config not found: " + configPath.string());
         return false;
     }
 
     std::ifstream file(configPath);
-    if (!file.is_open()) return false;
+    if (!file.is_open()) {
+        logger::warning("failed to open config: " + configPath.string());
+        return false;
+    }
 
     std::string contents((std::istreambuf_iterator<char>(file)),
                          std::istreambuf_iterator<char>());
@@ -78,7 +83,10 @@ bool DockConfig::reloadConfig() {
     if (root.is_stream() && root.has_children()) root = root.first_child();
     if (root.is_doc() && root.has_children()) root = root.first_child();
 
-    if (!root.is_map()) return false;
+    if (!root.is_map()) {
+        logger::warning("config root is not a map: " + configPath.string());
+        return false;
+    }
 
     if (root.has_child("looks")) {
         auto looksNode{root["looks"]};
@@ -165,6 +173,7 @@ bool DockConfig::reloadConfig() {
         }
     }
 
+    logger::info("config loaded: " + configPath.string());
     return true;
 }
 
