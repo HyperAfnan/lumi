@@ -12,15 +12,11 @@
 #include "utils.hpp"
 
 IconRenderer::IconRenderer(NVGcontext* vg)
-    : vg(vg),
-      rast(nsvgCreateRasterizer()),
-      cache(64, [this](int img) {
+    : vg(vg), rast(nsvgCreateRasterizer()), cache(64, [this](int img) {
           if (img != -1) nvgDeleteImage(this->vg, img);
       }) {}
 
-IconRenderer::~IconRenderer() {
-    nsvgDeleteRasterizer(rast);
-}
+IconRenderer::~IconRenderer() { nsvgDeleteRasterizer(rast); }
 
 int IconRenderer::rasterizeSVG(const fs::path& path, int size) {
     NSVGimage* svg{nsvgParseFromFile(path.c_str(), "px", 96.f)};
