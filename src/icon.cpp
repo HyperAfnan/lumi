@@ -171,6 +171,13 @@ std::optional<fs::path> findThemeDirectory(const std::vector<fs::path>& roots,
 
 void parseDirectory(const fs::path& themeDir, const std::string& subdir,
                     mINI::INIStructure& ini, Theme& theme) {
+    auto fullDir{themeDir / subdir};
+    if (!fs::exists(fullDir) || !fs::is_directory(fullDir)) {
+        logger::warning("Directory " + fullDir.string() +
+                        " does not exist or is not a directory, skipping");
+        return;
+    }
+
     IconEntry templateEntry;
 
     auto sectionIt{ini[subdir]};
@@ -222,8 +229,6 @@ void parseDirectory(const fs::path& themeDir, const std::string& subdir,
                             " in theme " + theme.name + ": " + maxSize);
         }
     }
-
-    auto fullDir{themeDir / subdir};
 
     std::uint32_t dirIndex{static_cast<std::uint32_t>(theme.dirPool.size())};
     theme.dirPool.push_back(fullDir);
