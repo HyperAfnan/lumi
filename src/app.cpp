@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <vector>
 
@@ -213,14 +214,6 @@ std::optional<fs::path> App::fuzzySearch() const {
     return std::nullopt;
 }
 
-static std::string trim(std::string_view str) {
-    if (str.empty()) return {};
-    std::size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == std::string_view::npos) return {};
-    std::size_t last = str.find_last_not_of(" \t\r\n");
-    return std::string(str.substr(first, last - first + 1));
-}
-
 void App::parseDesktopFile(const fs::path& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -231,15 +224,26 @@ void App::parseDesktopFile(const fs::path& path) {
     std::string currentSection;
     std::optional<Action> currentAction;
 
-    std::string rawLine;
-    while (std::getline(file, rawLine)) {
-        std::string line = trim(rawLine);
+    std::string content{std::istreambuf_iterator<char>(file),
+                        std::istreambuf_iterator<char>()};
+
+    std::size_t pos{0};
+    const std::size_t len{content.size()};
+
+    while (pos < len) {
+        std::size_t lineEnd{content.find('\n', pos)};
+        if (lineEnd == std::string::npos) lineEnd = len;
+
+        std::string_view rawLine(content.data() + pos, lineEnd - pos);
+        pos = lineEnd + 1;
+
+        std::string line{trim(rawLine)};
         if (line.empty() || line[0] == '#') {
             continue;
         }
 
         if (line.front() == '[' && line.back() == ']') {
-            std::string sectionName = trim(line.substr(1, line.size() - 2));
+            std::string sectionName{trim(line.substr(1, line.size() - 2))};
 
             if (currentSection.starts_with("Desktop Action ")) {
                 if (currentAction) {
@@ -251,7 +255,8 @@ void App::parseDesktopFile(const fs::path& path) {
             currentSection = sectionName;
 
             if (currentSection.starts_with("Desktop Action ")) {
-                std::string actionId = trim(currentSection.substr(15));
+                std::string actionId{trim(currentSection.substr(15))};
+
                 currentAction.emplace();
                 currentAction->name = actionId;
                 currentAction->displayName = actionId;
@@ -259,13 +264,13 @@ void App::parseDesktopFile(const fs::path& path) {
             continue;
         }
 
-        std::size_t eqPos = line.find('=');
+        std::size_t eqPos{line.find('=')};
         if (eqPos == std::string::npos) {
             continue;
         }
 
-        std::string key = trim(line.substr(0, eqPos));
-        std::string val = trim(line.substr(eqPos + 1));
+        std::string key{trim(line.substr(0, eqPos))};
+        std::string val{trim(line.substr(eqPos + 1))};
 
         if (currentSection == "Desktop Entry") {
             if (key == "Icon") {

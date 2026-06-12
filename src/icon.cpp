@@ -47,7 +47,7 @@ int IconRenderer::loadPNG(const fs::path& path) {
 int IconRenderer::load(const fs::path& path) {
     auto key{path.string()};
 
-    if (auto cached = cache.get(key); cached) return *cached;
+    if (auto cached{cache.get(key)}; cached) return *cached;
 
     int img{-1};
     if (path.extension() == ".svg") {

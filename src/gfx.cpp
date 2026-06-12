@@ -6,10 +6,26 @@
 
 #include "logger.hpp"
 
-GfxContext* g_gfxContext = nullptr;
+GfxContext* GfxContext::instance{nullptr};
+
+void GfxContext::init(WaylandContext& wl, LayerSurface& ls) {
+    if (instance) {
+        logger::error("GfxContext already initialized");
+        return;
+    }
+    instance = new GfxContext(wl, ls);
+}
+
+GfxContext* GfxContext::get() {
+    if (!instance) {
+        logger::error("GfxContext not initialized");
+        std::exit(1);
+    }
+
+    return instance;
+}
 
 GfxContext::GfxContext(WaylandContext& wl, LayerSurface& ls) {
-    g_gfxContext = this;
     display = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(wl.display));
 
     if (display == EGL_NO_DISPLAY ||
@@ -55,11 +71,11 @@ GfxContext::GfxContext(WaylandContext& wl, LayerSurface& ls) {
 }
 
 GfxContext::~GfxContext() {
-    g_gfxContext = nullptr;
     eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
     if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface);
     if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context);
     if (display != EGL_NO_DISPLAY) eglTerminate(display);
 }
+
 void GfxContext::swapBuffers() const { eglSwapBuffers(display, surface); }

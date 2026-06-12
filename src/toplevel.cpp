@@ -78,10 +78,10 @@ void ExtForeignBackend::onHandleClosed(void* data,
 
     if (auto it{self.handleAppIds.find(handle)};
         it != self.handleAppIds.end()) {
-        const auto appId = it->second;
+        const auto appId{it->second};
 
         if (!appId.empty()) {
-            auto countIt = self.appIdCount->find(appId);
+            auto countIt{self.appIdCount->find(appId)};
 
             if (--countIt->second == 0) {
                 self.appIdCount->erase(countIt);
@@ -152,7 +152,7 @@ void WlrForeignBackend::onHandleClosed(
 
     if (auto it{self.handleAppIds.find(handle)};
         it != self.handleAppIds.end()) {
-        const auto appId = it->second;
+        const auto appId{it->second};
 
         if (!appId.empty()) {
             auto countIt{self.appIdCount->find(appId)};

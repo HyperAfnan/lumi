@@ -13,15 +13,20 @@ class GfxContext {
     EGLSurface surface{EGL_NO_SURFACE};
     EGLConfig config{nullptr};
 
-    GfxContext(WaylandContext& wl, LayerSurface& ls);
+    static void init(WaylandContext& wl, LayerSurface& ls);
+    static GfxContext* get();
+
     ~GfxContext();
 
     GfxContext(const GfxContext&) = delete;
     GfxContext& operator=(const GfxContext&) = delete;
 
     void swapBuffers() const;
-};
 
-extern GfxContext* g_gfxContext;
+   private:
+    static GfxContext* instance;
+
+    GfxContext(WaylandContext& wl, LayerSurface& ls);
+};
 
 #endif  // GFX_HPP

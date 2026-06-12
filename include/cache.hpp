@@ -1,12 +1,11 @@
 #ifndef CACHE_HPP
 #define CACHE_HPP
 
+#include <functional>
 #include <list>
 #include <optional>
 #include <unordered_map>
 #include <utility>
-
-#include <functional>
 
 template <typename Key, typename Value>
 class LRUCache {
@@ -20,9 +19,7 @@ class LRUCache {
     LRUCache(std::size_t capacity, std::function<void(Value)> onEvict = nullptr)
         : capacity(capacity), onEvict(onEvict) {};
 
-    ~LRUCache() {
-        clear();
-    }
+    ~LRUCache() { clear(); }
 
     std::optional<Value> get(const Key& key) {
         auto mapIt{map.find(key)};

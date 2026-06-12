@@ -82,16 +82,19 @@ LayerSurface::~LayerSurface() {
 
 PopupSurface popupSurface;
 
-static void xdg_surface_configure(void* data, xdg_surface* xdg_surface,
-                                  uint32_t serial) {
+static void xdg_surface_configure([[maybe_unused]] void* data,
+                                  xdg_surface* xdg_surface,
+                                  std::uint32_t serial) {
     xdg_surface_ack_configure(xdg_surface, serial);
 
     if (!popupSurface.eglWindow) {
+        auto gfx{GfxContext::get()};
+
         popupSurface.eglWindow = wl_egl_window_create(
             popupSurface.surface, popupSurface.width, popupSurface.height);
-        if (g_gfxContext) {
+        if (gfx) {
             popupSurface.eglSurface = eglCreateWindowSurface(
-                g_gfxContext->display, g_gfxContext->config,
+                gfx->display, gfx->config,
                 reinterpret_cast<EGLNativeWindowType>(popupSurface.eglWindow),
                 nullptr);
         }
@@ -107,30 +110,38 @@ static const xdg_surface_listener xdg_surface_listener_impl = {
     .configure = xdg_surface_configure,
 };
 
-static void xdg_popup_popup_done(void* data, xdg_popup* xdg_popup) {
+static void xdg_popup_popup_done([[maybe_unused]] void* data,
+                                 [[maybe_unused]] xdg_popup* xdg_popup) {
     destroyPopup();
 }
 
-static void xdg_popup_configure(void* data, xdg_popup* xdg_popup, int32_t x,
-                                int32_t y, int32_t width, int32_t height) {
+static void xdg_popup_configure([[maybe_unused]] void* data,
+                                [[maybe_unused]] xdg_popup* xdg_popup,
+                                [[maybe_unused]] std::int32_t x,
+                                [[maybe_unused]] std::int32_t y,
+                                [[maybe_unused]] std::int32_t width,
+                                [[maybe_unused]] std::int32_t height) {
     // Optionally use the width/height provided by the compositor
 }
 
 static const xdg_popup_listener xdg_popup_listener_impl = {
     .configure = xdg_popup_configure,
     .popup_done = xdg_popup_popup_done,
+    .repositioned = nullptr,
 };
 
 void destroyPopup() {
-    if (g_gfxContext && popupSurface.eglSurface != EGL_NO_SURFACE) {
-        eglMakeCurrent(g_gfxContext->display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+    auto* gfx{GfxContext::get()};
+
+    if (gfx && popupSurface.eglSurface != EGL_NO_SURFACE) {
+        eglMakeCurrent(gfx->display, EGL_NO_SURFACE, EGL_NO_SURFACE,
                        EGL_NO_CONTEXT);
-        eglDestroySurface(g_gfxContext->display, popupSurface.eglSurface);
+        eglDestroySurface(gfx->display, popupSurface.eglSurface);
         popupSurface.eglSurface = EGL_NO_SURFACE;
         // Restore context to main surface
         if (WaylandContext::get().layerShell) {
-            eglMakeCurrent(g_gfxContext->display, g_gfxContext->surface,
-                           g_gfxContext->surface, g_gfxContext->context);
+            eglMakeCurrent(gfx->display, gfx->surface, gfx->surface,
+                           gfx->context);
         }
     }
     if (popupSurface.eglWindow) {
@@ -174,7 +185,7 @@ void createPopup(LayerSurface& ls, int appIndex, int iconX, int iconY,
     xdg_surface_add_listener(popupSurface.xdgSurface,
                              &xdg_surface_listener_impl, nullptr);
 
-    xdg_positioner* positioner = xdg_wm_base_create_positioner(wl.xdgWmBase);
+    xdg_positioner* positioner{xdg_wm_base_create_positioner(wl.xdgWmBase)};
     xdg_positioner_set_size(positioner, menuWidth, menuHeight);
 
     xdg_positioner_set_anchor_rect(positioner, iconX, iconY, iconWidth,
@@ -207,24 +218,30 @@ void createPopup(LayerSurface& ls, int appIndex, int iconX, int iconY,
 
 void repositionPopup(int iconX, int iconY, int iconWidth, int iconHeight) {
     if (!popupSurface.xdgPopup) return;
-    
-    if (popupSurface.anchorX == iconX && popupSurface.anchorY == iconY && popupSurface.anchorSize == iconWidth) {
+
+    if (popupSurface.anchorX == iconX && popupSurface.anchorY == iconY &&
+        popupSurface.anchorSize == iconWidth) {
         return;
     }
-    
+
     popupSurface.anchorX = iconX;
     popupSurface.anchorY = iconY;
     popupSurface.anchorSize = iconWidth;
 
     auto& wl{WaylandContext::get()};
-    
-    xdg_positioner* positioner = xdg_wm_base_create_positioner(wl.xdgWmBase);
-    xdg_positioner_set_size(positioner, popupSurface.width, popupSurface.height);
-    
-    xdg_positioner_set_anchor_rect(positioner, iconX, iconY, iconWidth, iconHeight);
+
+    xdg_positioner* positioner{xdg_wm_base_create_positioner(wl.xdgWmBase)};
+    xdg_positioner_set_size(positioner, popupSurface.width,
+                            popupSurface.height);
+
+    xdg_positioner_set_anchor_rect(positioner, iconX, iconY, iconWidth,
+                                   iconHeight);
     xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP);
     xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_TOP);
-    xdg_positioner_set_constraint_adjustment(positioner, XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y);
+    xdg_positioner_set_constraint_adjustment(
+        positioner, XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X |
+                        XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y |
+                        XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y);
     xdg_positioner_set_offset(positioner, 0, -8);
 
     xdg_popup_reposition(popupSurface.xdgPopup, positioner, 0);
@@ -242,7 +259,7 @@ void LayerSurface::onConfigure(void* data, zwlr_layer_surface_v1* layerSurface,
     zwlr_layer_surface_v1_ack_configure(layerSurface, serial);
     self.isResizing = false;
 
-    int desiredHeight = static_cast<int>(config.height());
+    int desiredHeight{static_cast<int>(config.height())};
 
     int requestedHeight{
         std::max(static_cast<int>(height ? height : desiredHeight), 1)};
@@ -250,7 +267,7 @@ void LayerSurface::onConfigure(void* data, zwlr_layer_surface_v1* layerSurface,
         static_cast<int>(width ? width : config.dockWidth(config.items.size())),
         1)};
 
-    bool sizeChanged = false;
+    bool sizeChanged{false};
     if (requestedWidth != self.width) {
         self.width = requestedWidth;
         sizeChanged = true;

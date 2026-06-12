@@ -15,12 +15,15 @@ Renderer::Renderer() {
         std::exit(1);
     }
 
-    int font = nvgCreateFont(vg, "sans", "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf");
+    int font{nvgCreateFont(vg, "sans",
+                           "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf")};
     if (font == -1) {
-        font = nvgCreateFont(vg, "sans", "/usr/share/fonts/TTF/JetBrainsMono-Medium.ttf");
+        font = nvgCreateFont(vg, "sans",
+                             "/usr/share/fonts/TTF/JetBrainsMono-Medium.ttf");
     }
     if (font == -1) {
-        font = nvgCreateFont(vg, "sans", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+        font = nvgCreateFont(vg, "sans",
+                             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
     }
     if (font == -1) {
         font = nvgCreateFont(vg, "sans", "/usr/share/fonts/TTF/DejaVuSans.ttf");

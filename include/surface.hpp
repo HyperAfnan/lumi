@@ -1,9 +1,9 @@
 #ifndef SURFACE_HPP
 #define SURFACE_HPP
 
+#include <EGL/egl.h>
 #include <wayland-client.h>
 #include <wayland-egl.h>
-#include <EGL/egl.h>
 
 #include <cstdint>
 
@@ -73,7 +73,9 @@ class LayerSurface {
 };
 
 extern PopupSurface popupSurface;
-void createPopup(LayerSurface& ls, int appIndex, int iconX, int iconY, int iconWidth, int iconHeight, int menuWidth, int menuHeight, uint32_t serial);
+void createPopup(LayerSurface& ls, int appIndex, int iconX, int iconY,
+                 int iconWidth, int iconHeight, int menuWidth, int menuHeight,
+                 std::uint32_t serial);
 void destroyPopup();
 void repositionPopup(int iconX, int iconY, int iconWidth, int iconHeight);
 

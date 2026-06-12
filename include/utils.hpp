@@ -40,4 +40,6 @@ bool icontains(std::string_view a, std::string_view b);
 
 std::expected<std::string, std::string> execCommand(std::string_view command);
 
+std::string trim(std::string_view str);
+
 #endif  // UTILS_HPP

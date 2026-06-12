@@ -94,7 +94,8 @@ struct DockConfig {
     inline float surfaceHeight() const { return dockHeight() + margin.top; }
 
     inline float extraAnimationSpace() const {
-        float scaleRise = (maxScale > 1.f) ? ((itemSize * maxScale) - itemSize) : 0.f;
+        float scaleRise{(maxScale > 1.f) ? ((itemSize * maxScale) - itemSize)
+                                         : 0.f};
         return maxLiftAmount + scaleRise;
     }
 

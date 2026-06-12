@@ -4,9 +4,7 @@
 #include <nanovg.h>
 
 #include "icon.hpp"
-
-class LayerSurface;
-struct PopupSurface;
+#include "surface.hpp"
 
 void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                 float dt);
