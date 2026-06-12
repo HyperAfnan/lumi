@@ -103,6 +103,8 @@ struct DockConfig {
         return surfaceHeight() + extraAnimationSpace();
     }
 
+    static fs::path configFile();
+
     static DockConfig& get() {
         static DockConfig instance;
         return instance;
@@ -117,11 +119,9 @@ struct DockConfig {
     DockConfig(DockConfig&&) = delete;
     DockConfig& operator=(DockConfig const&) = delete;
     DockConfig& operator=(DockConfig&&) = delete;
-
-    static fs::path configFile();
 };
 
 DockItem makeItem(const std::string& className, bool active,
                   bool virtualApp = false);
 
-#endif  // CONFIG_HPP
+#endif
