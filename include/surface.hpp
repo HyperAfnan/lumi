@@ -19,24 +19,6 @@ extern "C" {
 #pragma clang diagnostic pop
 }
 
-struct PopupSurface {
-    wl_surface* surface{nullptr};
-    xdg_surface* xdgSurface{nullptr};
-    xdg_popup* xdgPopup{nullptr};
-
-    wl_egl_window* eglWindow{nullptr};
-    EGLSurface eglSurface{EGL_NO_SURFACE};
-
-    int width{0};
-    int height{0};
-    int sourceAppIndex{-1};
-    bool isConfigured{false};
-
-    int anchorX{0};
-    int anchorY{0};
-    int anchorSize{0};
-};
-
 class LayerSurface {
    public:
     wl_surface* surface{nullptr};
@@ -71,12 +53,5 @@ class LayerSurface {
         .closed = onClosed,
     };
 };
-
-extern PopupSurface popupSurface;
-void createPopup(LayerSurface& ls, int appIndex, int iconX, int iconY,
-                 int iconWidth, int iconHeight, int menuWidth, int menuHeight,
-                 std::uint32_t serial);
-void destroyPopup();
-void repositionPopup(int iconX, int iconY, int iconWidth, int iconHeight);
 
 #endif  // SURFACE_HPP

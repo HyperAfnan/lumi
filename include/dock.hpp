@@ -8,6 +8,5 @@
 
 void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                 float dt);
-void handlePopup(NVGcontext* vg, PopupSurface& popup);
 
 #endif  // DOCK_HPP

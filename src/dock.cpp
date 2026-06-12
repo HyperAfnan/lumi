@@ -6,7 +6,7 @@
 #include "app.hpp"
 #include "config.hpp"
 #include "context.hpp"
-#include "surface.hpp"
+#include "popup.hpp"
 
 void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
                    float r) {
@@ -66,63 +66,6 @@ void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
     nvgStroke(vg);
 }
 
-void drawPopup(NVGcontext* vg, float x, float y, float w, float h, float r) {
-    // shadow
-    NVGpaint shadow{nvgBoxGradient(vg, x, y + h * 0.5f, w, h * 0.5f, r, 24.f,
-                                   nvgRGBAf(0.f, 0.f, 0.f, 0.35f),
-                                   nvgRGBAf(0.f, 0.f, 0.f, 0.f))};
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x - 20.f, y, w + 40.f, h + 32.f, r);
-    nvgFillPaint(vg, shadow);
-    nvgFill(vg);
-
-    // fill (darker base)
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, nvgRGBAf(0.05f, 0.05f, 0.06f, 0.72f));
-    nvgFill(vg);
-
-    // top half glow
-    NVGpaint glow{nvgLinearGradient(vg, x, y, x, y + h,
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.08f),
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.f))};
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillPaint(vg, glow);
-    nvgFill(vg);
-
-    // outer border
-    nvgBeginPath(vg);
-    nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1.f, h - 1.f, r);
-    nvgStrokeWidth(vg, 1.f);
-    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.18f));
-    nvgStroke(vg);
-
-    float midX{x + w * 0.5f};
-
-    // left half tint
-    NVGpaint rimL{nvgLinearGradient(vg, x + r, y, midX, y,
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.f),
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.35f))};
-    nvgBeginPath(vg);
-    nvgMoveTo(vg, x + r, y + 1.f);
-    nvgLineTo(vg, midX, y + 1.f);
-    nvgStrokeWidth(vg, 1.f);
-    nvgStrokePaint(vg, rimL);
-    nvgStroke(vg);
-
-    // right half tint
-    NVGpaint rimR{nvgLinearGradient(vg, midX, y, x + w - r, y,
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.35f),
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.f))};
-    nvgBeginPath(vg);
-    nvgMoveTo(vg, midX, y + 1.f);
-    nvgLineTo(vg, x + w - r, y + 1.f);
-    nvgStrokeWidth(vg, 1.f);
-    nvgStrokePaint(vg, rimR);
-    nvgStroke(vg);
-}
-
 static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
                                  float mouseY, float dockStartX,
                                  float baseBottomY, float itemSpacing,
@@ -166,6 +109,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     auto& mouseCtx{MouseContext::get()};
     auto& iconIndex{IconIndex::get()};
     auto& items{config.items};
+    auto& popup{Popup::get()};
     int itemCount{static_cast<int>(items.size())};
 
     if (itemCount == 0) return;
@@ -223,9 +167,8 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
 
     static bool prevPressed{false};
     if (mouseCtx.pressed && !prevPressed) {
-        if (popupSurface.surface &&
-            mouseCtx.currentSurface != popupSurface.surface) {
-            destroyPopup();
+        if (popup.isOpen() && mouseCtx.currentSurface != popup.wlSurface()) {
+            popup.destroy();
         }
 
         if (mouseCtx.currentSurface == ls.surface) {
@@ -295,17 +238,17 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                         (actions.size() * menuItemHeight) + padding)};
                     int menuWidth{180};
 
-                    createPopup(ls, clickedIndex,
-                                static_cast<int>(clickedIconX),
-                                static_cast<int>(clickedIconY),
-                                static_cast<int>(clickedIconSize),
-                                static_cast<int>(clickedIconSize), menuWidth,
-                                menuHeight, mouseCtx.rightClickSerial);
+                    popup.create(ls, clickedIndex,
+                                 static_cast<int>(clickedIconX),
+                                 static_cast<int>(clickedIconY),
+                                 static_cast<int>(clickedIconSize),
+                                 static_cast<int>(clickedIconSize), menuWidth,
+                                 menuHeight, mouseCtx.rightClickSerial);
                 } else {
-                    if (popupSurface.surface) destroyPopup();
+                    if (popup.isOpen()) popup.destroy();
                 }
             } else {
-                if (popupSurface.surface) destroyPopup();
+                if (popup.isOpen()) popup.destroy();
             }
         }
     }
@@ -323,10 +266,10 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
         float x{currentX + iconSize * 0.5f};
         float y{baseBottomY - (iconSize * 0.5f) + item.lift()};
 
-        if (popupSurface.surface && popupSurface.sourceAppIndex == i) {
+        if (popup.isOpen() && popup.sourceAppIndex() == i) {
             float iconBottom{baseBottomY + item.lift()};
             float iconTop{iconBottom - iconSize};
-            repositionPopup(
+            popup.reposition(
                 static_cast<int>(currentX), static_cast<int>(iconTop),
                 static_cast<int>(iconSize), static_cast<int>(iconSize));
         }
@@ -350,54 +293,4 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
 
         currentX += iconSize + spacing;
     }
-}
-
-void handlePopup(NVGcontext* vg, PopupSurface& popup) {
-    auto& config{DockConfig::get()};
-    auto& mouseCtx{MouseContext::get()};
-    auto& items{config.items};
-
-    if (popup.sourceAppIndex < 0 ||
-        popup.sourceAppIndex >= static_cast<int>(items.size()))
-        return;
-
-    drawPopup(vg, 0.f, 0.f, popup.width, popup.height, 12.f);
-
-    auto& clickedItem{items.at(popup.sourceAppIndex)};
-    const auto& actions{clickedItem.app.actions};
-
-    static bool prevPressed{false};
-
-    float itemY{8.f};
-    for (std::size_t i{0}; i < actions.size(); i++) {
-        float rowY{itemY + i * 36.f};
-
-        bool hovered{false};
-        if (mouseCtx.inside && mouseCtx.currentSurface == popup.surface &&
-            mouseCtx.x >= 0 && mouseCtx.x <= popup.width &&
-            mouseCtx.y >= rowY && mouseCtx.y < rowY + 36.f) {
-            hovered = true;
-        }
-
-        if (hovered && mouseCtx.pressed && !prevPressed) {
-            clickedItem.app.launchAction(actions[i]);
-            destroyPopup();
-            break;
-        }
-
-        if (hovered) {
-            nvgBeginPath(vg);
-            nvgRoundedRect(vg, 6.f, rowY + 2.f, popup.width - 12.f, 32.f, 6.f);
-            nvgFillColor(vg, nvgRGBAf(0.5f, 0.5f, 0.5f, 0.5f));
-            nvgFill(vg);
-        }
-
-        nvgFontSize(vg, 13.f);
-        nvgFontFace(vg, "sans");
-        nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
-        nvgText(vg, 16.f, rowY + 18.f, actions[i].displayName.c_str(), nullptr);
-    }
-
-    prevPressed = mouseCtx.pressed;
 }

@@ -10,6 +10,7 @@
 #include "gfx.hpp"
 #include "icon.hpp"
 #include "logger.hpp"
+#include "popup.hpp"
 #include "renderer.hpp"
 #include "surface.hpp"
 #include "toplevel.hpp"
@@ -71,6 +72,8 @@ int main() {
     auto lastFrame{std::chrono::steady_clock::now()};
     float smoothedDt{1.f / 60.f};
 
+    auto& popup{Popup::get()};
+
     auto renderFrame = [&] {
         auto now{std::chrono::steady_clock::now()};
         float dt{std::chrono::duration<float>(now - lastFrame).count()};
@@ -104,8 +107,8 @@ int main() {
         if (!ls.isResizing) {
             auto gfx{GfxContext::get()};
 
-            if (gfx && popupSurface.isConfigured &&
-                popupSurface.eglSurface != EGL_NO_SURFACE) {
+            if (gfx && popup.isConfigured() &&
+                popup.eglSurface != EGL_NO_SURFACE) {
                 eglMakeCurrent(gfx->display, gfx->surface, gfx->surface,
                                gfx->context);
             }
@@ -119,18 +122,18 @@ int main() {
 
             gfx->swapBuffers();
 
-            if (gfx && popupSurface.isConfigured &&
-                popupSurface.eglSurface != EGL_NO_SURFACE) {
-                eglMakeCurrent(gfx->display, popupSurface.eglSurface,
-                               popupSurface.eglSurface, gfx->context);
+            if (gfx && popup.isConfigured() &&
+                popup.eglSurface != EGL_NO_SURFACE) {
+                eglMakeCurrent(gfx->display, popup.eglSurface, popup.eglSurface,
+                               gfx->context);
 
-                renderer.clearViewport(popupSurface.width, popupSurface.height);
-                renderer.beginFrame(popupSurface.width, popupSurface.height);
+                renderer.clearViewport(popup.width, popup.height);
+                renderer.beginFrame(popup.width, popup.height);
 
-                handlePopup(renderer.vg, popupSurface);
+                popup.render(renderer.vg);
 
                 renderer.endFrame();
-                eglSwapBuffers(gfx->display, popupSurface.eglSurface);
+                eglSwapBuffers(gfx->display, popup.eglSurface);
 
                 eglMakeCurrent(gfx->display, gfx->surface, gfx->surface,
                                gfx->context);
