@@ -120,13 +120,6 @@ void LayerSurface::onConfigure(void* data, zwlr_layer_surface_v1* layerSurface,
         int marginLeft{static_cast<int>(config.margin.left)};
         zwlr_layer_surface_v1_set_margin(self.layerSurface, marginTop,
                                          marginRight, marginBottom, marginLeft);
-
-        if (self.eglWindow) {
-            self.pendingWidth = self.width;
-            self.pendingHeight = self.height;
-            self.hasPendingResize = true;
-            self.isResizing = true;
-        }
     }
 
     if (sizeChanged && self.eglWindow) {

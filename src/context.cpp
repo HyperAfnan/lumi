@@ -36,7 +36,8 @@ WaylandContext::WaylandContext() {
     roundtrip();
 
     if (!compositor || !layerShell || !xdgWmBase) {
-        logger::error("Missing wl_compositor, zwlr_layer_shell_v1, or xdg_wm_base");
+        logger::error(
+            "Missing wl_compositor, zwlr_layer_shell_v1, or xdg_wm_base");
         std::exit(EXIT_FAILURE);
     }
 
@@ -161,8 +162,8 @@ void WaylandContext::onSeatCapabilities(void* data, wl_seat* seat,
 }
 
 void WaylandContext::onPointerEnter([[maybe_unused]] void* data, wl_pointer*,
-                                    uint32_t, wl_surface* surface, wl_fixed_t sx,
-                                    wl_fixed_t sy) {
+                                    uint32_t, wl_surface* surface,
+                                    wl_fixed_t sx, wl_fixed_t sy) {
     auto& mouseContext{MouseContext::get()};
 
     mouseContext.x = wl_fixed_to_double(sx);
@@ -191,6 +192,8 @@ void WaylandContext::onPointerButton([[maybe_unused]] void* data, wl_pointer*,
                                      [[maybe_unused]] uint32_t serial,
                                      uint32_t /*time*/, uint32_t button,
                                      uint32_t state) {
+    if (button != 0x110 && button != 0x111) return;
+
     auto& mouseContext{MouseContext::get()};
 
     if (button == 0x110) {
