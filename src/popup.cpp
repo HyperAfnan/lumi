@@ -13,7 +13,7 @@
 static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
                         float r) {
     NVGpaint shadow{nvgBoxGradient(vg, x, y + h * 0.5f, w, h * 0.5f, r, 24.f,
-                                   nvgRGBAf(0.f, 0.f, 0.f, 0.35f),
+                                   nvgRGBAf(0.f, 0.f, 0.f, 0.22f),
                                    nvgRGBAf(0.f, 0.f, 0.f, 0.f))};
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x - 20.f, y, w + 40.f, h + 32.f, r);
@@ -22,11 +22,11 @@ static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
 
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, nvgRGBAf(0.05f, 0.05f, 0.06f, 0.72f));
+    nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.08f));
     nvgFill(vg);
 
     NVGpaint glow{nvgLinearGradient(vg, x, y, x, y + h,
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.08f),
+                                    nvgRGBAf(1.f, 1.f, 1.f, 0.12f),
                                     nvgRGBAf(1.f, 1.f, 1.f, 0.f))};
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, r);
@@ -36,14 +36,14 @@ static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1.f, h - 1.f, r);
     nvgStrokeWidth(vg, 1.f);
-    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.18f));
+    nvgStrokeColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.30f));
     nvgStroke(vg);
 
     float midX{x + w * 0.5f};
 
     NVGpaint rimL{nvgLinearGradient(vg, x + r, y, midX, y,
                                     nvgRGBAf(1.f, 1.f, 1.f, 0.f),
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.35f))};
+                                    nvgRGBAf(1.f, 1.f, 1.f, 0.65f))};
     nvgBeginPath(vg);
     nvgMoveTo(vg, x + r, y + 1.f);
     nvgLineTo(vg, midX, y + 1.f);
@@ -52,7 +52,7 @@ static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
     nvgStroke(vg);
 
     NVGpaint rimR{nvgLinearGradient(vg, midX, y, x + w - r, y,
-                                    nvgRGBAf(1.f, 1.f, 1.f, 0.35f),
+                                    nvgRGBAf(1.f, 1.f, 1.f, 0.65f),
                                     nvgRGBAf(1.f, 1.f, 1.f, 0.f))};
     nvgBeginPath(vg);
     nvgMoveTo(vg, midX, y + 1.f);
@@ -108,6 +108,8 @@ void Popup::onPopupDone(void*, xdg_popup*) { get().destroy(); }
 
 void Popup::onPopupConfigure(void*, xdg_popup*, std::int32_t, std::int32_t,
                              std::int32_t, std::int32_t) {}
+
+void Popup::onPopupRepositioned(void*, xdg_popup*, std::uint32_t) {}
 
 void Popup::destroy() {
     auto* gfx{GfxContext::get()};
@@ -250,7 +252,7 @@ void Popup::render(NVGcontext* vg) {
         if (hovered) {
             nvgBeginPath(vg);
             nvgRoundedRect(vg, 6.f, rowY + 2.f, width - 12.f, 32.f, 6.f);
-            nvgFillColor(vg, nvgRGBAf(0.5f, 0.5f, 0.5f, 0.5f));
+            nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.15f));
             nvgFill(vg);
         }
 

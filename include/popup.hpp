@@ -62,6 +62,8 @@ class Popup {
     static void onPopupConfigure(void* data, xdg_popup* xdgPopup,
                                  std::int32_t x, std::int32_t y,
                                  std::int32_t width, std::int32_t height);
+    static void onPopupRepositioned(void* data, xdg_popup* xdgPopup,
+                                    std::uint32_t token);
 
     static inline const xdg_surface_listener xdgSurfaceListener{
         .configure = onXdgConfigure,
@@ -69,7 +71,7 @@ class Popup {
     static inline const xdg_popup_listener xdgPopupListener{
         .configure = onPopupConfigure,
         .popup_done = onPopupDone,
-        .repositioned = nullptr,
+        .repositioned = onPopupRepositioned,
     };
 };
 
