@@ -205,6 +205,10 @@ int main() {
                         logger::info("Config change detected via inotify.");
                         
                         if (dockConfig.reloadConfig()) {
+                            if (popup.isOpen()) {
+                                popup.destroy();
+                            }
+
                             iconIndex.preload(
                                 dockConfig.items |
                                 std::views::transform([](const DockItem& item) { return item.app; }) |
