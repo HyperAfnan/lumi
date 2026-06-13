@@ -28,6 +28,7 @@ Requirements:
 - wayland-client, wayland-egl
 - egl
 - epoxy
+- fontconfig
 
 Build steps:
 
@@ -69,6 +70,11 @@ looks:
   activeDotSize: 6
   maxScale: 1.5
   maxLiftAmount: 2
+  backgroundColor: [255, 255, 255, 0.08]
+  font:
+    name: "sans"
+    size: 13
+    color: [255, 255, 255, 1.0]
 
 items:
   - kitty
@@ -107,6 +113,15 @@ and lower GPU load.
 
 `looks.maxLiftAmount`
 Maximum vertical lift in pixels during hover.
+
+`looks.backgroundColor`
+The background color of the glass dock and context menus. Specified as a 4-element array `[R, G, B, A]`, where R, G, B are integers from `0` to `255`, and A is a float from `0.0` to `1.0`.
+
+`looks.font`
+Font configuration block for the context menu text:
+- `name`: Human-readable system font name (like `"sans"`, `"Fira Code"`, or `"Ubuntu"`). Dynamically resolved using `fontconfig`.
+- `size`: Font size (in pixels).
+- `color`: Font color as a 4-element array `[R, G, B, A]`.
 
 `items`
 Ordered list of dock entries. Each entry can be:
