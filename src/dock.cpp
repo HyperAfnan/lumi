@@ -130,21 +130,13 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     float hoverX{-9999.f};
     float hoverY{-9999.f};
 
-    if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {
+    if (popup.isOpen()) {
+        hoverX = mouseCtx.rightClickX;
+        hoverY = mouseCtx.rightClickY;
+    } else if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {
         hoverX = mouseCtx.x;
         hoverY = mouseCtx.y;
     }
-    // ig we can disable hover effects when mouse is inside a popup
-    // else if (mouseCtx.inside &&
-    //            mouseCtx.currentSurface == popupSurface.surface) {
-    //     hoverX = mouseCtx.x + popupSurface.anchorX +
-    //              popupSurface.anchorSize * 0.5f - popupSurface.width * 0.5f;
-    //     hoverY = mouseCtx.y + popupSurface.anchorY - 8.f -
-    //     popupSurface.height;
-    // } else if (popupSurface.surface) {
-    //     hoverX = mouseCtx.rightClickX;
-    //     hoverY = mouseCtx.rightClickY;
-    // }
 
     float baseBottomY{dockY + config.padding.top + config.itemMargin.top +
                       baseSize};
