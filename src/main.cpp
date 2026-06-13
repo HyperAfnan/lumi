@@ -216,6 +216,8 @@ int main() {
                                 std::views::transform([](const DockItem& item) { return item.app; }) |
                                 std::ranges::to<std::vector>());
 
+                            toplevelCtx.replayOpenApps();
+
                             renderer.loadConfiguredFont();
 
                             int newHeight = static_cast<int>(dockConfig.height());
