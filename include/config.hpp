@@ -22,6 +22,18 @@ struct SidesConfig {
     inline float vertical() const { return top + bottom; }
 };
 
+struct ColorConfig {
+    float r, g, b, a;
+
+    inline NVGcolor toNVG() const { return nvgRGBAf(r, g, b, a); }
+};
+
+struct FontConfig {
+    std::string name{"sans"};
+    float size{13.f};
+    ColorConfig color{1.f, 1.f, 1.f, 1.f};
+};
+
 inline Spring makeDotSpring() {
     return Spring{20.f, SpringConfig{370.f, 18.f, 1.f}};
 }
@@ -41,6 +53,11 @@ struct DockItem {
     float dotOffset() const { return dotSpring.get(); }
 };
 
+struct ContextMenuConfig {
+    ColorConfig backgroundColor{0.05f, 0.05f, 0.06f, 0.72f};
+    ColorConfig hoverColor{0.5f, 0.5f, 0.5f, 0.5f};
+};
+
 namespace DockDefaults {
 constexpr float cornerRadius{28.f};
 
@@ -56,10 +73,14 @@ constexpr float activeDotSize{6.f};
 
 constexpr float maxScale{1.5f};
 constexpr float maxLiftAmount{2.f};
+constexpr ColorConfig backgroundColor{1.f, 1.f, 1.f, 0.08f};
 }  // namespace DockDefaults
 
 struct DockConfig {
     float cornerRadius{DockDefaults::cornerRadius};
+    ColorConfig backgroundColor{DockDefaults::backgroundColor};
+    FontConfig font;
+    ContextMenuConfig contextMenu;
 
     SidesConfig padding{DockDefaults::padding};
     SidesConfig margin{DockDefaults::margin};
@@ -103,6 +124,8 @@ struct DockConfig {
         return surfaceHeight() + extraAnimationSpace();
     }
 
+    static fs::path configFile();
+
     static DockConfig& get() {
         static DockConfig instance;
         return instance;
@@ -117,11 +140,9 @@ struct DockConfig {
     DockConfig(DockConfig&&) = delete;
     DockConfig& operator=(DockConfig const&) = delete;
     DockConfig& operator=(DockConfig&&) = delete;
-
-    static fs::path configFile();
 };
 
 DockItem makeItem(const std::string& className, bool active,
                   bool virtualApp = false);
 
-#endif  // CONFIG_HPP
+#endif

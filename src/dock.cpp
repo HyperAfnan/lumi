@@ -8,8 +8,8 @@
 #include "context.hpp"
 #include "popup.hpp"
 
-void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
-                   float r) {
+void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,
+                   NVGcolor bgColor) {
     // shadow
     NVGpaint shadow{nvgBoxGradient(vg, x, y + h * 0.5f, w, h * 0.5f, r, 24.f,
                                    nvgRGBAf(0.f, 0.f, 0.f, 0.22f),
@@ -22,7 +22,7 @@ void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
     // fill
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.08f));
+    nvgFillColor(vg, bgColor);
     nvgFill(vg);
 
     // top half glow
@@ -130,21 +130,13 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     float hoverX{-9999.f};
     float hoverY{-9999.f};
 
-    if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {
+    if (popup.isOpen()) {
+        hoverX = mouseCtx.rightClickX;
+        hoverY = mouseCtx.rightClickY;
+    } else if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {
         hoverX = mouseCtx.x;
         hoverY = mouseCtx.y;
     }
-    // ig we can disable hover effects when mouse is inside a popup
-    // else if (mouseCtx.inside &&
-    //            mouseCtx.currentSurface == popupSurface.surface) {
-    //     hoverX = mouseCtx.x + popupSurface.anchorX +
-    //              popupSurface.anchorSize * 0.5f - popupSurface.width * 0.5f;
-    //     hoverY = mouseCtx.y + popupSurface.anchorY - 8.f -
-    //     popupSurface.height;
-    // } else if (popupSurface.surface) {
-    //     hoverX = mouseCtx.rightClickX;
-    //     hoverY = mouseCtx.rightClickY;
-    // }
 
     float baseBottomY{dockY + config.padding.top + config.itemMargin.top +
                       baseSize};
@@ -232,11 +224,29 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                 auto& clickedItem{items.at(clickedIndex)};
                 const auto& actions{clickedItem.app.actions};
                 if (!actions.empty()) {
-                    float menuItemHeight{36.f};
-                    float padding{16.f};
+                    float menuItemHeight{
+                        std::round(config.font.size * 2.f + 10.f)};
+                    float padding{std::round(config.font.size * 0.6f + 8.f)};
                     int menuHeight{static_cast<int>(
                         (actions.size() * menuItemHeight) + padding)};
-                    int menuWidth{180};
+
+                    float maxTextWidth{0.f};
+                    nvgSave(vg);
+                    nvgFontSize(vg, config.font.size);
+                    nvgFontFace(vg, config.font.name.c_str());
+                    for (const auto& action : actions) {
+                        float bounds[4];
+                        nvgTextBounds(vg, 0.f, 0.f, action.displayName.c_str(),
+                                      nullptr, bounds);
+
+                        float w{bounds[2] - bounds[0]};
+                        if (w > maxTextWidth) maxTextWidth = w;
+                    }
+                    nvgRestore(vg);
+
+                    float paddingX{std::round(config.font.size * 0.8f + 20.f)};
+                    int menuWidth{static_cast<int>(
+                        std::max(180.f, maxTextWidth + paddingX))};
 
                     popup.create(ls, clickedIndex,
                                  static_cast<int>(clickedIconX),
@@ -255,7 +265,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     prevRightPressed = mouseCtx.rightPressed;
 
     drawGlassDock(vg, dockX, dockY, animatedWidth, visualDockHeight,
-                  config.cornerRadius);
+                  config.cornerRadius, config.backgroundColor.toNVG());
 
     float currentX{dockX + config.padding.left + config.itemMargin.left};
     for (int i{0}; i < itemCount; i++) {

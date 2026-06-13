@@ -2,6 +2,7 @@
 #include "config.hpp"
 
 #include <fstream>
+#include <optional>
 
 #include "logger.hpp"
 #include "ryml.hpp"
@@ -57,7 +58,39 @@ inline SidesConfig _parseSides(ryml::ConstNodeRef node,
     };
 }
 
-// TODO: lator add hot reload support
+inline ColorConfig _parseColor(ryml::ConstNodeRef node,
+                               const ColorConfig& def) {
+    if (node.invalid() || node.is_seed()) return def;
+
+    if (!node.is_seq() || node.num_children() != 4) {
+        logger::warning(
+            "backgroundColor must be an array of 4 values: [R, G, B, A]");
+        return def;
+    }
+
+    float r{nodeFloat(node[0], def.r * 255.f)};
+    float g{nodeFloat(node[1], def.g * 255.f)};
+    float b{nodeFloat(node[2], def.b * 255.f)};
+    float a{nodeFloat(node[3], def.a)};
+
+    return ColorConfig{r / 255.f, g / 255.f, b / 255.f, a};
+}
+
+inline ContextMenuConfig _parseContextMenuConfig(ryml::ConstNodeRef node,
+                                                 const ContextMenuConfig& def) {
+    if (node.invalid() || node.is_seed()) return def;
+
+    ContextMenuConfig config{def};
+
+    if (node.has_child("backgroundColor"))
+        config.backgroundColor =
+            _parseColor(node["backgroundColor"], def.backgroundColor);
+    if (node.has_child("hoverColor"))
+        config.hoverColor = _parseColor(node["hoverColor"], def.hoverColor);
+
+    return config;
+}
+
 bool DockConfig::reloadConfig() {
     auto configPath{configFile()};
     auto& dockConfig{*this};
@@ -88,36 +121,85 @@ bool DockConfig::reloadConfig() {
         return false;
     }
 
+    auto assignFloat = [](ryml::ConstNodeRef parent, const char* key,
+                          float& target, float fallback) {
+        if (parent.has_child(ryml::to_csubstr(key))) {
+            target = nodeFloat(parent[ryml::to_csubstr(key)], fallback);
+        }
+    };
+
+    auto assignString = [](ryml::ConstNodeRef parent, const char* key,
+                           std::optional<std::string>& target) {
+        if (parent.has_child(ryml::to_csubstr(key)) &&
+            parent[ryml::to_csubstr(key)].has_val()) {
+            std::string valStr;
+            parent[ryml::to_csubstr(key)] >> valStr;
+            target = valStr;
+        }
+    };
+
     if (root.has_child("looks")) {
         auto looksNode{root["looks"]};
 
         if (looksNode.is_map()) {
-            for (auto child : looksNode) {
-                if (child.key() == "cornerRadius")
-                    dockConfig.cornerRadius =
-                        nodeFloat(child, DockDefaults::cornerRadius);
-                else if (child.key() == "padding")
-                    dockConfig.padding =
-                        _parseSides(child, DockDefaults::padding);
-                else if (child.key() == "margin")
-                    dockConfig.margin =
-                        _parseSides(child, DockDefaults::margin);
-                else if (child.key() == "itemSize")
-                    dockConfig.itemSize =
-                        nodeFloat(child, DockDefaults::itemSize);
-                else if (child.key() == "itemSpacing")
-                    dockConfig.itemSpacing =
-                        nodeFloat(child, DockDefaults::itemSpacing);
-                else if (child.key() == "activeDotSize")
-                    dockConfig.activeDotSize =
-                        nodeFloat(child, DockDefaults::activeDotSize);
-                else if (child.key() == "maxScale")
-                    dockConfig.maxScale =
-                        nodeFloat(child, DockDefaults::maxScale);
-                else if (child.key() == "maxLiftAmount")
-                    dockConfig.maxLiftAmount =
-                        nodeFloat(child, DockDefaults::maxLiftAmount);
+            assignFloat(looksNode, "cornerRadius", dockConfig.cornerRadius,
+                        DockDefaults::cornerRadius);
+            assignFloat(looksNode, "itemSize", dockConfig.itemSize,
+                        DockDefaults::itemSize);
+            assignFloat(looksNode, "itemSpacing", dockConfig.itemSpacing,
+                        DockDefaults::itemSpacing);
+            assignFloat(looksNode, "activeDotSize", dockConfig.activeDotSize,
+                        DockDefaults::activeDotSize);
+            assignFloat(looksNode, "maxScale", dockConfig.maxScale,
+                        DockDefaults::maxScale);
+            assignFloat(looksNode, "maxLiftAmount", dockConfig.maxLiftAmount,
+                        DockDefaults::maxLiftAmount);
+
+            if (looksNode.has_child("backgroundColor")) {
+                dockConfig.backgroundColor =
+                    _parseColor(looksNode["backgroundColor"],
+                                DockDefaults::backgroundColor);
             }
+
+            if (looksNode.has_child("contextMenu")) {
+                dockConfig.contextMenu = _parseContextMenuConfig(
+                    looksNode["contextMenu"], dockConfig.contextMenu);
+            }
+
+            if (looksNode.has_child("font")) {
+                auto fontNode{looksNode["font"]};
+                if (fontNode.is_map()) {
+                    if (fontNode.has_child("name") &&
+                        fontNode["name"].has_val()) {
+                        fontNode["name"] >> dockConfig.font.name;
+                    }
+                    assignFloat(fontNode, "size", dockConfig.font.size,
+                                dockConfig.font.size);
+                    if (fontNode.has_child("color")) {
+                        dockConfig.font.color = _parseColor(
+                            fontNode["color"], dockConfig.font.color);
+                    }
+
+                    logger::info(
+                        "font parsed: name=" + dockConfig.font.name +
+                        " size=" + std::to_string(dockConfig.font.size) +
+                        " color=(" + std::to_string(dockConfig.font.color.r) +
+                        "," + std::to_string(dockConfig.font.color.g) + "," +
+                        std::to_string(dockConfig.font.color.b) + "," +
+                        std::to_string(dockConfig.font.color.a) + ")");
+                } else {
+                    logger::warning("font node is not a map");
+                }
+            } else {
+                logger::warning("no font node found under looks");
+            }
+
+            if (looksNode.has_child("padding"))
+                dockConfig.padding =
+                    _parseSides(looksNode["padding"], DockDefaults::padding);
+            if (looksNode.has_child("margin"))
+                dockConfig.margin =
+                    _parseSides(looksNode["margin"], DockDefaults::margin);
         }
     }
 
@@ -130,42 +212,22 @@ bool DockConfig::reloadConfig() {
             for (auto itemNode : itemsNode) {
                 if (itemNode.is_val()) {
                     std::string className;
-
                     itemNode >> className;
                     dockConfig.items.emplace_back(makeItem(className, false));
                 } else if (itemNode.is_map()) {
-                    std::string className;
-
-                    if (itemNode.has_child("class")) {
-                        itemNode["class"] >> className;
-                    } else {
+                    if (!itemNode.has_child("class") ||
+                        !itemNode["class"].has_val()) {
                         continue;
                     }
 
+                    std::string className;
+                    itemNode["class"] >> className;
                     auto item{makeItem(className, false, true)};
 
-                    for (auto propertyNode : itemNode) {
-                        std::string keyStr;
-                        propertyNode >> ryml::key(keyStr);
-
-                        if (!nodeHasValue(propertyNode)) continue;
-
-                        std::string valStr;
-                        propertyNode >> valStr;
-
-                        if (keyStr == "Icon") {
-                            item.app.Icon = valStr;
-                        } else if (keyStr == "Exec") {
-                            item.app.Exec = valStr;
-                        } else if (keyStr == "StartupWMClass") {
-                            item.app.StartupWMClass = valStr;
-                        }
-
-                        if (item.app.Icon && item.app.Exec &&
-                            item.app.StartupWMClass) {
-                            break;
-                        }
-                    }
+                    assignString(itemNode, "Icon", item.app.Icon);
+                    assignString(itemNode, "Exec", item.app.Exec);
+                    assignString(itemNode, "StartupWMClass",
+                                 item.app.StartupWMClass);
 
                     dockConfig.items.emplace_back(std::move(item));
                 }
