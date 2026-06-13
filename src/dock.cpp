@@ -8,8 +8,8 @@
 #include "context.hpp"
 #include "popup.hpp"
 
-void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h,
-                   float r, NVGcolor bgColor) {
+void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,
+                   NVGcolor bgColor) {
     // shadow
     NVGpaint shadow{nvgBoxGradient(vg, x, y + h * 0.5f, w, h * 0.5f, r, 24.f,
                                    nvgRGBAf(0.f, 0.f, 0.f, 0.22f),
@@ -224,7 +224,8 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                 auto& clickedItem{items.at(clickedIndex)};
                 const auto& actions{clickedItem.app.actions};
                 if (!actions.empty()) {
-                    float menuItemHeight{std::round(config.font.size * 2.f + 10.f)};
+                    float menuItemHeight{
+                        std::round(config.font.size * 2.f + 10.f)};
                     float padding{std::round(config.font.size * 0.6f + 8.f)};
                     int menuHeight{static_cast<int>(
                         (actions.size() * menuItemHeight) + padding)};
@@ -235,14 +236,17 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                     nvgFontFace(vg, config.font.name.c_str());
                     for (const auto& action : actions) {
                         float bounds[4];
-                        nvgTextBounds(vg, 0.f, 0.f, action.displayName.c_str(), nullptr, bounds);
-                        float w = bounds[2] - bounds[0];
+                        nvgTextBounds(vg, 0.f, 0.f, action.displayName.c_str(),
+                                      nullptr, bounds);
+
+                        float w{bounds[2] - bounds[0]};
                         if (w > maxTextWidth) maxTextWidth = w;
                     }
                     nvgRestore(vg);
 
                     float paddingX{std::round(config.font.size * 0.8f + 20.f)};
-                    int menuWidth{static_cast<int>(std::max(180.f, maxTextWidth + paddingX))};
+                    int menuWidth{static_cast<int>(
+                        std::max(180.f, maxTextWidth + paddingX))};
 
                     popup.create(ls, clickedIndex,
                                  static_cast<int>(clickedIconX),

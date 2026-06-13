@@ -25,9 +25,7 @@ struct SidesConfig {
 struct ColorConfig {
     float r, g, b, a;
 
-    inline NVGcolor toNVG() const { 
-        return nvgRGBAf(r, g, b, a); 
-    }
+    inline NVGcolor toNVG() const { return nvgRGBAf(r, g, b, a); }
 };
 
 struct FontConfig {
@@ -55,6 +53,11 @@ struct DockItem {
     float dotOffset() const { return dotSpring.get(); }
 };
 
+struct ContextMenuConfig {
+    ColorConfig backgroundColor{0.05f, 0.05f, 0.06f, 0.72f};
+    ColorConfig hoverColor{0.5f, 0.5f, 0.5f, 0.5f};
+};
+
 namespace DockDefaults {
 constexpr float cornerRadius{28.f};
 
@@ -77,6 +80,7 @@ struct DockConfig {
     float cornerRadius{DockDefaults::cornerRadius};
     ColorConfig backgroundColor{DockDefaults::backgroundColor};
     FontConfig font;
+    ContextMenuConfig contextMenu;
 
     SidesConfig padding{DockDefaults::padding};
     SidesConfig margin{DockDefaults::margin};

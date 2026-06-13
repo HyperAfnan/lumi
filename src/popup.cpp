@@ -225,24 +225,25 @@ void Popup::render(NVGcontext* vg) {
     if (srcAppIndex < 0 || srcAppIndex >= static_cast<int>(items.size()))
         return;
 
-    float popupRadius = std::round(config.font.size * 0.3f + 8.f);
-    drawPopupBg(vg, 0.f, 0.f, width, height, popupRadius, config.backgroundColor.toNVG());
+    float popupRadius{std::round(config.font.size * 0.3f + 8.f)};
+    drawPopupBg(vg, 0.f, 0.f, width, height, popupRadius,
+                config.contextMenu.backgroundColor.toNVG());
 
     auto& clickedItem{items.at(srcAppIndex)};
     const auto& actions{clickedItem.app.actions};
 
     static bool prevPressed{false};
 
-    float rowHeight = std::round(config.font.size * 2.f + 10.f);
-    float padding = std::round(config.font.size * 0.6f + 8.f);
-    float itemY = padding / 2.f;
+    float rowHeight{std::round(config.font.size * 2.f + 10.f)};
+    float padding{std::round(config.font.size * 0.6f + 8.f)};
+    float itemY{padding / 2.f};
 
-    float paddingX = std::round(config.font.size * 0.8f + 20.f);
-    float textX = paddingX / 2.f;
+    float paddingX{std::round(config.font.size * 0.8f + 20.f)};
+    float textX{paddingX / 2.f};
 
-    float hoverMargin = std::round(config.font.size * 0.2f + 3.f);
-    float hoverRadius = std::round(config.font.size * 0.2f + 3.f);
-    float hoverPadY = std::round(config.font.size * 0.05f + 1.f);
+    float hoverMargin{std::round(config.font.size * 0.2f + 3.f)};
+    float hoverRadius{std::round(config.font.size * 0.2f + 3.f)};
+    float hoverPadY{std::round(config.font.size * 0.05f + 1.f)};
 
     for (std::size_t i{0}; i < actions.size(); i++) {
         float rowY{itemY + i * rowHeight};
@@ -262,8 +263,10 @@ void Popup::render(NVGcontext* vg) {
 
         if (hovered) {
             nvgBeginPath(vg);
-            nvgRoundedRect(vg, hoverMargin, rowY + hoverPadY, width - hoverMargin * 2.f, rowHeight - hoverPadY * 2.f, hoverRadius);
-            nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.15f));
+            nvgRoundedRect(vg, hoverMargin, rowY + hoverPadY,
+                           width - hoverMargin * 2.f,
+                           rowHeight - hoverPadY * 2.f, hoverRadius);
+            nvgFillColor(vg, config.contextMenu.hoverColor.toNVG());
             nvgFill(vg);
         }
 
@@ -271,7 +274,8 @@ void Popup::render(NVGcontext* vg) {
         nvgFontFace(vg, config.font.name.c_str());
         nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
         nvgFillColor(vg, config.font.color.toNVG());
-        nvgText(vg, textX, rowY + rowHeight / 2.0f, actions[i].displayName.c_str(), nullptr);
+        nvgText(vg, textX, rowY + rowHeight / 2.0f,
+                actions[i].displayName.c_str(), nullptr);
     }
 
     prevPressed = mouseCtx.pressed;

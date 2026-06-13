@@ -1,12 +1,11 @@
 #define NANOSVG_IMPLEMENTATION
 #define NANOSVGRAST_IMPLEMENTATION
 
-#include <sys/inotify.h>
 #include <poll.h>
+#include <sys/inotify.h>
 #include <unistd.h>
+
 #include <cerrno>
-
-
 #include <chrono>
 #include <ranges>
 
@@ -39,7 +38,7 @@ int main() {
     GfxContext::init(wl, ls);
     Renderer renderer;
     IconRenderer iconRenderer{renderer.vg};
-    
+
     renderer.loadConfiguredFont();
 
     auto& iconIndex{IconIndex::get()};
@@ -152,23 +151,23 @@ int main() {
         wl_display_flush(wl.display);
     };
 
-    auto configPath = DockConfig::configFile();
-    std::string configFilename = configPath.filename().string();
-    std::string configDir = configPath.parent_path().string();
+    auto configPath{DockConfig::configFile()};
+    std::string configFilename{configPath.filename().string()};
+    std::string configDir{configPath.parent_path().string()};
 
-    int inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+    int inotify_fd{inotify_init1(IN_NONBLOCK | IN_CLOEXEC)};
     if (inotify_fd < 0) {
         logger::error("Failed to initialize inotify");
     }
 
-    int watch_desc = inotify_add_watch(inotify_fd, configDir.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO);
-
-    int wl_fd = wl_display_get_fd(wl.display);
+    inotify_add_watch(inotify_fd, configDir.c_str(),
+                      IN_CLOSE_WRITE | IN_MOVED_TO);
+    int wl_fd{wl_display_get_fd(wl.display)};
 
     struct pollfd fds[2];
     fds[0].fd = wl_fd;
     fds[0].events = POLLIN;
-    
+
     fds[1].fd = inotify_fd;
     fds[1].events = POLLIN;
 
@@ -177,7 +176,7 @@ int main() {
     while (!ls.closed) {
         wl_display_flush(wl.display);
 
-        int ret = poll(fds, 2, 16); 
+        int ret{poll(fds, 2, 16)};
 
         if (ret < 0) {
             if (errno == EINTR) continue;
@@ -190,22 +189,22 @@ int main() {
                 break;
             }
         }
-        
+
         if (fds[1].revents & POLLIN) {
             char buffer[4096]
                 __attribute__((aligned(__alignof__(struct inotify_event))));
-            const struct inotify_event *event;
+            const struct inotify_event* event;
             ssize_t len;
 
             while ((len = read(inotify_fd, buffer, sizeof(buffer))) > 0) {
-                char *ptr = buffer;
-                
+                char* ptr{buffer};
+
                 while (ptr < buffer + len) {
-                    event = (const struct inotify_event *)ptr;
+                    event = (const struct inotify_event*)ptr;
 
                     if (event->len && configFilename == event->name) {
                         logger::info("Config change detected via inotify.");
-                        
+
                         if (dockConfig.reloadConfig()) {
                             if (popup.isOpen()) {
                                 popup.destroy();
@@ -213,27 +212,38 @@ int main() {
 
                             iconIndex.preload(
                                 dockConfig.items |
-                                std::views::transform([](const DockItem& item) { return item.app; }) |
+                                std::views::transform([](const DockItem& item) {
+                                    return item.app;
+                                }) |
                                 std::ranges::to<std::vector>());
 
                             toplevelCtx.replayOpenApps();
 
                             renderer.loadConfiguredFont();
 
-                            int newHeight = static_cast<int>(dockConfig.height());
-                            int marginTop = static_cast<int>(dockConfig.margin.top);
-                            int marginRight = static_cast<int>(dockConfig.margin.right);
-                            int marginBottom = static_cast<int>(dockConfig.margin.bottom);
-                            int marginLeft = static_cast<int>(dockConfig.margin.left);
+                            int newHeight{
+                                static_cast<int>(dockConfig.height())};
+                            int marginTop{
+                                static_cast<int>(dockConfig.margin.top)};
+                            int marginRight{
+                                static_cast<int>(dockConfig.margin.right)};
+                            int marginBottom{
+                                static_cast<int>(dockConfig.margin.bottom)};
+                            int marginLeft{
+                                static_cast<int>(dockConfig.margin.left)};
 
-                            zwlr_layer_surface_v1_set_size(ls.layerSurface, 0, newHeight);
-                            zwlr_layer_surface_v1_set_exclusive_zone(ls.layerSurface, dockConfig.surfaceHeight());
-                            zwlr_layer_surface_v1_set_margin(ls.layerSurface, marginTop, marginRight, marginBottom, marginLeft);
-                            
+                            zwlr_layer_surface_v1_set_size(ls.layerSurface, 0,
+                                                           newHeight);
+                            zwlr_layer_surface_v1_set_exclusive_zone(
+                                ls.layerSurface, dockConfig.surfaceHeight());
+                            zwlr_layer_surface_v1_set_margin(
+                                ls.layerSurface, marginTop, marginRight,
+                                marginBottom, marginLeft);
+
                             wl_surface_commit(ls.surface);
                         }
                     }
-                    
+
                     ptr += sizeof(struct inotify_event) + event->len;
                 }
             }
