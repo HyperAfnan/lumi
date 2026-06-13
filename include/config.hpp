@@ -22,6 +22,20 @@ struct SidesConfig {
     inline float vertical() const { return top + bottom; }
 };
 
+struct ColorConfig {
+    float r, g, b, a;
+
+    inline NVGcolor toNVG() const { 
+        return nvgRGBAf(r, g, b, a); 
+    }
+};
+
+struct FontConfig {
+    std::string name{"sans"};
+    float size{13.f};
+    ColorConfig color{1.f, 1.f, 1.f, 1.f};
+};
+
 inline Spring makeDotSpring() {
     return Spring{20.f, SpringConfig{370.f, 18.f, 1.f}};
 }
@@ -56,10 +70,13 @@ constexpr float activeDotSize{6.f};
 
 constexpr float maxScale{1.5f};
 constexpr float maxLiftAmount{2.f};
+constexpr ColorConfig backgroundColor{1.f, 1.f, 1.f, 0.08f};
 }  // namespace DockDefaults
 
 struct DockConfig {
     float cornerRadius{DockDefaults::cornerRadius};
+    ColorConfig backgroundColor{DockDefaults::backgroundColor};
+    FontConfig font;
 
     SidesConfig padding{DockDefaults::padding};
     SidesConfig margin{DockDefaults::margin};

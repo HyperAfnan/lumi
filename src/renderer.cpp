@@ -7,6 +7,8 @@
 #include <cstdlib>
 
 #include "logger.hpp"
+#include "config.hpp"
+#include "utils.hpp"
 
 Renderer::Renderer() {
     vg = nvgCreateGLES3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
@@ -53,3 +55,22 @@ void Renderer::beginFrame(int w, int h, float dpr) const {
 }
 
 void Renderer::endFrame() const { nvgEndFrame(vg); }
+
+void Renderer::loadConfiguredFont() {
+    auto& config{DockConfig::get()};
+    
+    if (nvgFindFont(vg, config.font.name.c_str()) == -1) {
+        auto path = getFontPath(config.font.name);
+        
+        if (path) {
+            int fontId = nvgCreateFont(vg, config.font.name.c_str(), path->c_str());
+            if (fontId == -1) {
+                logger::error("NanoVG failed to load font file: " + *path);
+            } else {
+                logger::info("Loaded custom font: " + config.font.name + " (" + *path + ")");
+            }
+        } else {
+            logger::warning("System could not find font: " + config.font.name);
+        }
+    }
+}

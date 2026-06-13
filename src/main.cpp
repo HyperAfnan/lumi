@@ -39,6 +39,8 @@ int main() {
     GfxContext::init(wl, ls);
     Renderer renderer;
     IconRenderer iconRenderer{renderer.vg};
+    
+    renderer.loadConfiguredFont();
 
     auto& iconIndex{IconIndex::get()};
     auto& toplevelCtx{ToplevelContext::get()};
@@ -213,6 +215,8 @@ int main() {
                                 dockConfig.items |
                                 std::views::transform([](const DockItem& item) { return item.app; }) |
                                 std::ranges::to<std::vector>());
+
+                            renderer.loadConfiguredFont();
 
                             int newHeight = static_cast<int>(dockConfig.height());
                             int marginTop = static_cast<int>(dockConfig.margin.top);

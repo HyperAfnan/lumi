@@ -17,6 +17,8 @@ class Renderer {
     void beginFrame(int w, int h, float devicePixelRatio = 1.f) const;
     void endFrame() const;
     void clearViewport(int w, int h) const;
+
+    void loadConfiguredFont();
 };
 
-#endif  // RENDERER_HPP
+#endif

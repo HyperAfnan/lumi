@@ -11,7 +11,7 @@
 #include "surface.hpp"
 
 static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
-                        float r) {
+                        float r, NVGcolor bgColor) {
     NVGpaint shadow{nvgBoxGradient(vg, x, y + h * 0.5f, w, h * 0.5f, r, 24.f,
                                    nvgRGBAf(0.f, 0.f, 0.f, 0.22f),
                                    nvgRGBAf(0.f, 0.f, 0.f, 0.f))};
@@ -22,7 +22,7 @@ static void drawPopupBg(NVGcontext* vg, float x, float y, float w, float h,
 
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, r);
-    nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.08f));
+    nvgFillColor(vg, bgColor);
     nvgFill(vg);
 
     NVGpaint glow{nvgLinearGradient(vg, x, y, x, y + h,
@@ -225,21 +225,32 @@ void Popup::render(NVGcontext* vg) {
     if (srcAppIndex < 0 || srcAppIndex >= static_cast<int>(items.size()))
         return;
 
-    drawPopupBg(vg, 0.f, 0.f, width, height, 12.f);
+    float popupRadius = std::round(config.font.size * 0.3f + 8.f);
+    drawPopupBg(vg, 0.f, 0.f, width, height, popupRadius, config.backgroundColor.toNVG());
 
     auto& clickedItem{items.at(srcAppIndex)};
     const auto& actions{clickedItem.app.actions};
 
     static bool prevPressed{false};
 
-    float itemY{8.f};
+    float rowHeight = std::round(config.font.size * 2.f + 10.f);
+    float padding = std::round(config.font.size * 0.6f + 8.f);
+    float itemY = padding / 2.f;
+
+    float paddingX = std::round(config.font.size * 0.8f + 20.f);
+    float textX = paddingX / 2.f;
+
+    float hoverMargin = std::round(config.font.size * 0.2f + 3.f);
+    float hoverRadius = std::round(config.font.size * 0.2f + 3.f);
+    float hoverPadY = std::round(config.font.size * 0.05f + 1.f);
+
     for (std::size_t i{0}; i < actions.size(); i++) {
-        float rowY{itemY + i * 36.f};
+        float rowY{itemY + i * rowHeight};
 
         bool hovered{false};
         if (mouseCtx.inside && mouseCtx.currentSurface == surface &&
             mouseCtx.x >= 0 && mouseCtx.x <= width && mouseCtx.y >= rowY &&
-            mouseCtx.y < rowY + 36.f) {
+            mouseCtx.y < rowY + rowHeight) {
             hovered = true;
         }
 
@@ -251,16 +262,16 @@ void Popup::render(NVGcontext* vg) {
 
         if (hovered) {
             nvgBeginPath(vg);
-            nvgRoundedRect(vg, 6.f, rowY + 2.f, width - 12.f, 32.f, 6.f);
+            nvgRoundedRect(vg, hoverMargin, rowY + hoverPadY, width - hoverMargin * 2.f, rowHeight - hoverPadY * 2.f, hoverRadius);
             nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 0.15f));
             nvgFill(vg);
         }
 
-        nvgFontSize(vg, 13.f);
-        nvgFontFace(vg, "sans");
+        nvgFontSize(vg, config.font.size);
+        nvgFontFace(vg, config.font.name.c_str());
         nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, nvgRGBAf(1.f, 1.f, 1.f, 1.f));
-        nvgText(vg, 16.f, rowY + 18.f, actions[i].displayName.c_str(), nullptr);
+        nvgFillColor(vg, config.font.color.toNVG());
+        nvgText(vg, textX, rowY + rowHeight / 2.0f, actions[i].displayName.c_str(), nullptr);
     }
 
     prevPressed = mouseCtx.pressed;

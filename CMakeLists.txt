@@ -17,6 +17,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(WAYLAND REQUIRED wayland-client wayland-egl)
 pkg_check_modules(EGL REQUIRED egl)
 pkg_check_modules(EPOXY   REQUIRED epoxy)
+pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
 
 add_executable(${PROJECT_NAME} ${SRC_DIR}/main.cpp)
 
@@ -44,12 +45,14 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${WAYLAND_INCLUDE_DIRS}
     ${EGL_INCLUDE_DIRS}
     ${EPOXY_INCLUDE_DIRS}
+    ${FONTCONFIG_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${WAYLAND_LIBRARIES}
     ${EGL_LIBRARIES}
     ${EPOXY_LIBRARIES}   
+    ${FONTCONFIG_LIBRARIES}
 )
 
 # flags for build

@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+std::optional<std::string> getFontPath(const std::string& family);
+
 struct TransparentHash {
     using is_transparent = void;
 
