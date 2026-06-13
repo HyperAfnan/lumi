@@ -389,7 +389,10 @@ void WaylandContext::data_device_drop(void*, wl_data_device*) {
 
     if (!paths.empty()) {
         auto& config{DockConfig::get()};
-        config.items[mouseCtx.dndHoverIndex].app.launch(paths);
+        auto& item{config.items[mouseCtx.dndHoverIndex]};
+        if (std::holds_alternative<DockItem>(item)) {
+            std::get<DockItem>(item).app.launch(paths);
+        }
     }
 
     wl_data_offer_finish(mouseCtx.dndOffer);

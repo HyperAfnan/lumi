@@ -82,10 +82,12 @@ static void updateDockAnimations(
     
     mouseCtx.dndHoverIndex = -1;
     float currentX{dockStartX};
+    int idx{0};
 
     for (auto& itemVar : items) {
         if (isSeparator(itemVar)) {
             currentX += separatorConfig.thickness + spacing;
+            idx++;
             continue;
         }
 
@@ -104,7 +106,7 @@ static void updateDockAnimations(
             float iconLeft{iconCenter - iconSize * 0.5f};
             float iconRight{iconCenter + iconSize * 0.5f};
             if (insideY && mouseX >= iconLeft && mouseX <= iconRight) {
-                mouseCtx.dndHoverIndex = static_cast<int>(i);
+                mouseCtx.dndHoverIndex = idx;
             }
         }
 
@@ -117,7 +119,7 @@ static void updateDockAnimations(
         float targetLift{
             (config.maxScale == 1.f) ? 0.f : -influence * config.maxLiftAmount};
             
-        if (mouseCtx.dndActive && mouseCtx.dndHoverIndex == static_cast<int>(i)) {
+        if (mouseCtx.dndActive && mouseCtx.dndHoverIndex == idx) {
             targetScale = config.maxScale * 1.1f;
         }
 
@@ -127,6 +129,7 @@ static void updateDockAnimations(
         item.liftSpring.update(dt);
 
         currentX += itemSize + spacing;
+        idx++;
     }
 }
 
