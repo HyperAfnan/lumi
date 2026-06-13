@@ -112,12 +112,30 @@ bool isFieldCode(const std::string& token) {
     return token.size() == 2 && token[0] == '%' && std::isalpha(token[1]);
 }
 
-void App::launch() const {
+void App::launch(const std::vector<std::string>& files) const {
     if (!Exec) {
         logger::warning("missing Exec for app: " + className);
         return;
     }
-    launchExec(*Exec);
+
+    std::string cmd = *Exec;
+
+    if (!files.empty()) {
+        std::string fileArgs;
+        for (const auto& f : files) {
+            fileArgs += " \"" + f + "\"";
+        }
+
+        if (cmd.find("%u") != std::string::npos) cmd.replace(cmd.find("%u"), 2, fileArgs);
+        else if (cmd.find("%U") != std::string::npos) cmd.replace(cmd.find("%U"), 2, fileArgs);
+        else if (cmd.find("%f") != std::string::npos) cmd.replace(cmd.find("%f"), 2, fileArgs);
+        else if (cmd.find("%F") != std::string::npos) cmd.replace(cmd.find("%F"), 2, fileArgs);
+        else {
+            cmd += fileArgs;
+        }
+    }
+
+    launchExec(cmd);
 }
 
 void App::launchAction(const Action& action) const {

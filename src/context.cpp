@@ -6,8 +6,15 @@
 #include <cstring>
 #include <memory>
 
+#include <sstream>
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
+#include <vector>
+
 #include "logger.hpp"
 #include "toplevel.hpp"
+#include "config.hpp"
 
 constexpr std::uint32_t COMPOSITOR_VERSION{4};
 constexpr std::uint32_t SEAT_VERSION{7};
@@ -45,6 +52,8 @@ WaylandContext::WaylandContext() {
 }
 
 WaylandContext::~WaylandContext() {
+    if (dataDevice) wl_data_device_destroy(dataDevice);
+    if (dataDeviceManager) wl_data_device_manager_destroy(dataDeviceManager);
     if (pointer) wl_pointer_destroy(pointer);
     if (seat) wl_seat_destroy(seat);
     if (xdgWmBase) xdg_wm_base_destroy(xdgWmBase);
@@ -122,6 +131,9 @@ void WaylandContext::onGlobal(void* data, wl_registry* registry,
         self.backend = BackendType::WlrForeign;
         toplevelCtx.setBackend(
             std::make_unique<WlrForeignBackend>(self.wlrToplevelManager));
+    } else if (std::strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+        self.dataDeviceManager = static_cast<wl_data_device_manager*>(
+            wl_registry_bind(registry, name, &wl_data_device_manager_interface, 3));
     }
 }
 
@@ -142,6 +154,10 @@ void WaylandContext::onGlobalRemove(void* data,
                wl_proxy_get_id((wl_proxy*)self.xdgWmBase) == name) {
         xdg_wm_base_destroy(self.xdgWmBase);
         self.xdgWmBase = nullptr;
+    } else if (self.dataDeviceManager &&
+               wl_proxy_get_id((wl_proxy*)self.dataDeviceManager) == name) {
+        wl_data_device_manager_destroy(self.dataDeviceManager);
+        self.dataDeviceManager = nullptr;
     }
 }
 
@@ -153,10 +169,20 @@ void WaylandContext::onSeatCapabilities(void* data, wl_seat* seat,
     if (hasPointer && !self.pointer) {
         self.pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(self.pointer, &pointerListener, &self);
+
+        if (self.dataDeviceManager && !self.dataDevice) {
+            self.dataDevice = wl_data_device_manager_get_data_device(self.dataDeviceManager, seat);
+            wl_data_device_add_listener(self.dataDevice, &WaylandContext::dataDeviceListener, &self);
+        }
+
         logger::info("pointer capability enabled");
     } else if (!hasPointer && self.pointer) {
         wl_pointer_destroy(self.pointer);
         self.pointer = nullptr;
+        if (self.dataDevice) {
+            wl_data_device_destroy(self.dataDevice);
+            self.dataDevice = nullptr;
+        }
         logger::warning("pointer capability disabled");
     }
 }
@@ -215,3 +241,171 @@ void WaylandContext::onPointerButton([[maybe_unused]] void* data, wl_pointer*,
         }
     }
 }
+
+static std::vector<std::string> parseUriList(const std::string& uriList) {
+    std::vector<std::string> paths;
+    std::istringstream stream(uriList);
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.find("file://") == 0) {
+            std::string path = line.substr(7);
+            std::string decoded;
+            for (size_t i = 0; i < path.length(); ++i) {
+                if (path[i] == '%' && i + 2 < path.length()) {
+                    int hex;
+                    std::istringstream(path.substr(i + 1, 2)) >> std::hex >> hex;
+                    decoded += static_cast<char>(hex);
+                    i += 2;
+                } else {
+                    decoded += path[i];
+                }
+            }
+            paths.push_back(decoded);
+        }
+    }
+    return paths;
+}
+
+void WaylandContext::data_offer_offer(void*, wl_data_offer* offer, const char* mimeType) {
+    auto& mouseCtx = MouseContext::get();
+    if (mouseCtx.pendingOffer == offer && std::strcmp(mimeType, "text/uri-list") == 0) {
+        mouseCtx.hasUriList = true;
+    }
+}
+
+const wl_data_offer_listener WaylandContext::offerListener = {
+    .offer = WaylandContext::data_offer_offer,
+    .source_actions = [](void*, wl_data_offer*, uint32_t) {},
+    .action = [](void*, wl_data_offer*, uint32_t) {},
+};
+
+void WaylandContext::data_device_data_offer(void*, wl_data_device*, wl_data_offer* offer) {
+    auto& mouseCtx = MouseContext::get();
+
+    // Destroy any previous pending offer that was never used
+    if (mouseCtx.pendingOffer) {
+        wl_data_offer_destroy(mouseCtx.pendingOffer);
+    }
+
+    mouseCtx.pendingOffer = offer;
+    mouseCtx.hasUriList = false;
+    wl_data_offer_add_listener(offer, &WaylandContext::offerListener, nullptr);
+}
+
+void WaylandContext::data_device_enter(void*, wl_data_device*, uint32_t serial, wl_surface* surface, wl_fixed_t x, wl_fixed_t y, wl_data_offer* offer) {
+    auto& mouseCtx = MouseContext::get();
+    mouseCtx.x = wl_fixed_to_double(x);
+    mouseCtx.y = wl_fixed_to_double(y);
+    mouseCtx.inside = true;
+    mouseCtx.currentSurface = surface;
+    mouseCtx.dndActive = true;
+    mouseCtx.dndOffer = offer;
+
+    if (mouseCtx.hasUriList) {
+        wl_data_offer_accept(offer, serial, "text/uri-list");
+        wl_data_offer_set_actions(offer,
+            WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY,
+            WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+    } else {
+        wl_data_offer_accept(offer, serial, nullptr);
+    }
+}
+
+void WaylandContext::data_device_leave(void*, wl_data_device*) {
+    auto& mouseCtx = MouseContext::get();
+
+    if (mouseCtx.dndOffer) {
+        wl_data_offer_destroy(mouseCtx.dndOffer);
+    }
+
+    mouseCtx.dndActive = false;
+    mouseCtx.dndOffer = nullptr;
+    mouseCtx.pendingOffer = nullptr;
+    mouseCtx.dndHoverIndex = -1;
+    mouseCtx.inside = false;
+    mouseCtx.x = -9999.f;
+    mouseCtx.y = -9999.f;
+    mouseCtx.currentSurface = nullptr;
+}
+
+void WaylandContext::data_device_motion(void*, wl_data_device*, uint32_t, wl_fixed_t x, wl_fixed_t y) {
+    auto& mouseCtx = MouseContext::get();
+    mouseCtx.x = wl_fixed_to_double(x);
+    mouseCtx.y = wl_fixed_to_double(y);
+}
+
+void WaylandContext::data_device_drop(void*, wl_data_device*) {
+    auto& mouseCtx = MouseContext::get();
+    if (mouseCtx.dndHoverIndex == -1 || !mouseCtx.dndOffer || !mouseCtx.hasUriList) {
+        if (mouseCtx.dndOffer) {
+            wl_data_offer_destroy(mouseCtx.dndOffer);
+        }
+        mouseCtx.dndActive = false;
+        mouseCtx.dndOffer = nullptr;
+        mouseCtx.pendingOffer = nullptr;
+        mouseCtx.dndHoverIndex = -1;
+        return;
+    }
+
+    int fds[2];
+    if (pipe(fds) == -1) {
+        wl_data_offer_destroy(mouseCtx.dndOffer);
+        mouseCtx.dndActive = false;
+        mouseCtx.dndOffer = nullptr;
+        mouseCtx.pendingOffer = nullptr;
+        mouseCtx.dndHoverIndex = -1;
+        return;
+    }
+
+    wl_data_offer_receive(mouseCtx.dndOffer, "text/uri-list", fds[1]);
+    close(fds[1]);
+    wl_display_flush(WaylandContext::get().display);
+
+    // Make the read end non-blocking
+    int flags = fcntl(fds[0], F_GETFL, 0);
+    fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
+
+    std::string uriList;
+    char buffer[4096];
+
+    // Poll with a timeout to avoid blocking the event loop indefinitely
+    struct pollfd pfd;
+    pfd.fd = fds[0];
+    pfd.events = POLLIN;
+
+    while (true) {
+        int ret = poll(&pfd, 1, 500);
+        if (ret <= 0) break;
+
+        ssize_t n = read(fds[0], buffer, sizeof(buffer) - 1);
+        if (n <= 0) break;
+        buffer[n] = '\0';
+        uriList += buffer;
+    }
+    close(fds[0]);
+
+    std::vector<std::string> paths = parseUriList(uriList);
+
+    if (!paths.empty()) {
+        auto& config = DockConfig::get();
+        config.items[mouseCtx.dndHoverIndex].app.launch(paths);
+    }
+
+    wl_data_offer_finish(mouseCtx.dndOffer);
+    wl_data_offer_destroy(mouseCtx.dndOffer);
+
+    mouseCtx.dndActive = false;
+    mouseCtx.dndOffer = nullptr;
+    mouseCtx.pendingOffer = nullptr;
+    mouseCtx.dndHoverIndex = -1;
+}
+
+const wl_data_device_listener WaylandContext::dataDeviceListener = {
+    .data_offer = WaylandContext::data_device_data_offer,
+    .enter = WaylandContext::data_device_enter,
+    .leave = WaylandContext::data_device_leave,
+    .motion = WaylandContext::data_device_motion,
+    .drop = WaylandContext::data_device_drop,
+    .selection = [](void*, wl_data_device*, wl_data_offer*) {},
+};

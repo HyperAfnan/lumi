@@ -71,8 +71,11 @@ static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
                                  float baseBottomY, float itemSpacing,
                                  float itemSize, float dt) {
     DockConfig& config{DockConfig::get()};
+    MouseContext& mouseCtx{MouseContext::get()};
 
     float influenceRadius{itemSize * 2.3f};
+    
+    mouseCtx.dndHoverIndex = -1;
 
     for (std::size_t i{0}; i < items.size(); i++) {
         float iconSize{itemSize * items[i].scale()};
@@ -84,6 +87,15 @@ static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
         float iconTop{iconBottom - iconSize};
 
         bool insideY{mouseY >= iconTop && mouseY <= iconBottom};
+        
+        if (mouseCtx.dndActive) {
+            float iconLeft{iconCenter - iconSize * 0.5f};
+            float iconRight{iconCenter + iconSize * 0.5f};
+            if (insideY && mouseX >= iconLeft && mouseX <= iconRight) {
+                mouseCtx.dndHoverIndex = static_cast<int>(i);
+            }
+        }
+
         float influence{
             insideY ? std::max(0.f, 1.f - distance / influenceRadius) : 0.f};
 
@@ -92,6 +104,10 @@ static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
         float targetScale{1.f + influence * (config.maxScale - 1.f)};
         float targetLift{
             (config.maxScale == 1.f) ? 0.f : -influence * config.maxLiftAmount};
+            
+        if (mouseCtx.dndActive && mouseCtx.dndHoverIndex == static_cast<int>(i)) {
+            targetScale = config.maxScale * 1.1f;
+        }
 
         items[i].scaleSpring.setTarget(targetScale);
         items[i].liftSpring.setTarget(targetLift);
@@ -130,7 +146,10 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     float hoverX{-9999.f};
     float hoverY{-9999.f};
 
-    if (popup.isOpen()) {
+    if (mouseCtx.dndActive) {
+        hoverX = mouseCtx.x;
+        hoverY = mouseCtx.y;
+    } else if (popup.isOpen()) {
         hoverX = mouseCtx.rightClickX;
         hoverY = mouseCtx.rightClickY;
     } else if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {
