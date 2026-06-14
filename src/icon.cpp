@@ -517,7 +517,7 @@ void MemIconIndex::clear() {
     lookupCache.clear();
 }
 
-// ─── IconIndex (persistent binary cache) ────────────────────────────────────
+// persistent local icon index
 
 static fs::path cacheDir() {
     auto home{getEnv("HOME")};

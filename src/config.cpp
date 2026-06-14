@@ -91,6 +91,23 @@ inline ContextMenuConfig _parseContextMenuConfig(ryml::ConstNodeRef node,
     return config;
 }
 
+inline SeparatorConfig _parseSeparatorConfig(ryml::ConstNodeRef node,
+                                             const SeparatorConfig& def) {
+    if (node.invalid() || node.is_seed()) return def;
+
+    SeparatorConfig config{def};
+
+    if (node.has_child("thickness"))
+        config.thickness = childFloat(node, "thickness", def.thickness);
+    if (node.has_child("color"))
+        config.color = _parseColor(node["color"], def.color);
+    if (node.has_child("borderRadius"))
+        config.borderRadius =
+            childFloat(node, "borderRadius", def.borderRadius);
+
+    return config;
+}
+
 bool DockConfig::reloadConfig() {
     auto configPath{configFile()};
     auto& dockConfig{*this};
@@ -166,6 +183,11 @@ bool DockConfig::reloadConfig() {
                     looksNode["contextMenu"], dockConfig.contextMenu);
             }
 
+            if (looksNode.has_child("separator")) {
+                dockConfig.separator = _parseSeparatorConfig(
+                    looksNode["separator"], dockConfig.separator);
+            }
+
             if (looksNode.has_child("font")) {
                 auto fontNode{looksNode["font"]};
                 if (fontNode.is_map()) {
@@ -209,8 +231,16 @@ bool DockConfig::reloadConfig() {
         if (itemsNode.is_seq()) {
             dockConfig.items.clear();
 
-            for (auto itemNode : itemsNode) {
-                if (itemNode.is_val()) {
+            for (std::size_t i = 0; i < itemsNode.num_children(); ++i) {
+                auto itemNode{itemsNode[i]};
+
+                if (itemNode.is_map() && itemNode.has_child("separator") &&
+                    itemNode["separator"].has_val()) {
+                    // false to indicate this is a separator, not an app item
+                    dockConfig.items.emplace_back(false);
+
+                    continue;
+                } else if (itemNode.is_val()) {
                     std::string className;
                     itemNode >> className;
                     dockConfig.items.emplace_back(makeItem(className, false));

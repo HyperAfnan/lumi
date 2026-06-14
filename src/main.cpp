@@ -45,33 +45,38 @@ int main() {
     auto& toplevelCtx{ToplevelContext::get()};
 
     iconIndex.preload(
-        dockConfig.items |
+        dockConfig.items | std::views::filter([](const auto& v) {
+            return std::holds_alternative<DockItem>(v);
+        }) |
+        std::views::transform(
+            [](const auto& v) { return std::get<DockItem>(v); }) |
         std::views::transform([](const DockItem& item) { return item.app; }) |
         std::ranges::to<std::vector>());
 
     toplevelCtx.onAppOpen = [](std::string_view appId) {
         for (auto& item : DockConfig::get().items) {
-            if (item.app.matchesAppId(appId)) {
-                if (item.active) break;
+            handleAppVariant(item, [&](DockItem& dockItem) {
+                if (dockItem.app.matchesAppId(appId)) {
+                    if (dockItem.active) return;
 
-                item.active = true;
+                    dockItem.active = true;
 
-                item.dotSpring = makeDotSpring();
-                item.dotSpring.setTarget(0.f);
-
-                break;
-            }
+                    dockItem.dotSpring = makeDotSpring();
+                    dockItem.dotSpring.setTarget(0.f);
+                }
+            });
         }
     };
 
     toplevelCtx.onAppClose = [](std::string_view appId) {
         for (auto& item : DockConfig::get().items) {
-            if (item.app.matchesAppId(appId)) {
-                if (!item.active) break;
+            handleAppVariant(item, [&](DockItem& dockItem) {
+                if (dockItem.app.matchesAppId(appId)) {
+                    if (!dockItem.active) return;
 
-                item.active = false;
-                break;
-            }
+                    dockItem.active = false;
+                }
+            });
         }
     };
     toplevelCtx.replayOpenApps();
@@ -212,6 +217,12 @@ int main() {
 
                             iconIndex.preload(
                                 dockConfig.items |
+                                std::views::filter([](const auto& v) {
+                                    return std::holds_alternative<DockItem>(v);
+                                }) |
+                                std::views::transform([](const auto& v) {
+                                    return std::get<DockItem>(v);
+                                }) |
                                 std::views::transform([](const DockItem& item) {
                                     return item.app;
                                 }) |
