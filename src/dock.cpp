@@ -8,6 +8,10 @@
 #include "context.hpp"
 #include "popup.hpp"
 
+static bool isSeparator(const std::variant<bool, DockItem>& v) {
+    return std::holds_alternative<bool>(v);
+}
+
 void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,
                    NVGcolor bgColor) {
     // shadow
@@ -66,21 +70,29 @@ void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,
     nvgStroke(vg);
 }
 
-static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
-                                 float mouseY, float dockStartX,
-                                 float baseBottomY, float itemSpacing,
-                                 float itemSize, float dt) {
+static void updateDockAnimations(
+    std::vector<std::variant<bool, DockItem>>& items,
+    const SeparatorConfig& separatorConfig, float mouseX, float mouseY,
+    float dockStartX, float baseBottomY, float spacing, float itemSize,
+    float dt) {
     DockConfig& config{DockConfig::get()};
 
     float influenceRadius{itemSize * 2.3f};
+    float currentX{dockStartX};
 
-    for (std::size_t i{0}; i < items.size(); i++) {
-        float iconSize{itemSize * items[i].scale()};
-        float iconCenter{dockStartX + i * itemSpacing + itemSize * 0.5f};
+    for (auto& itemVar : items) {
+        if (isSeparator(itemVar)) {
+            currentX += separatorConfig.thickness + spacing;
+            continue;
+        }
+
+        auto& item{std::get<DockItem>(itemVar)};
+        float iconCenter{currentX + itemSize * 0.5f};
 
         float distance{std::abs(mouseX - iconCenter)};
 
-        float iconBottom{baseBottomY + items[i].lift()};
+        float iconSize{itemSize * item.scale()};
+        float iconBottom{baseBottomY + item.lift()};
         float iconTop{iconBottom - iconSize};
 
         bool insideY{mouseY >= iconTop && mouseY <= iconBottom};
@@ -93,10 +105,12 @@ static void updateDockAnimations(std::vector<DockItem>& items, float mouseX,
         float targetLift{
             (config.maxScale == 1.f) ? 0.f : -influence * config.maxLiftAmount};
 
-        items[i].scaleSpring.setTarget(targetScale);
-        items[i].liftSpring.setTarget(targetLift);
-        items[i].scaleSpring.update(dt);
-        items[i].liftSpring.update(dt);
+        item.scaleSpring.setTarget(targetScale);
+        item.liftSpring.setTarget(targetLift);
+        item.scaleSpring.update(dt);
+        item.liftSpring.update(dt);
+
+        currentX += itemSize + spacing;
     }
 }
 
@@ -112,14 +126,23 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     auto& popup{Popup::get()};
     int itemCount{static_cast<int>(items.size())};
 
-    if (itemCount == 0) return;
+    int appCount{0};
+    for (const auto& itemVar : items) {
+        if (!isSeparator(itemVar)) appCount++;
+    }
+    if (appCount == 0) return;
 
     float baseSize{config.itemSize};
     float spacing{config.itemSpacing};
+    float sepThickness{config.separator.thickness};
 
     float estimatedWidth{config.padding.horizontal() +
-                         config.itemMargin.horizontal() + itemCount * baseSize +
-                         (itemCount - 1) * spacing};
+                         config.itemMargin.horizontal()};
+    for (const auto& itemVar : items) {
+        estimatedWidth += isSeparator(itemVar) ? sepThickness : baseSize;
+    }
+    if (itemCount > 0) estimatedWidth += (itemCount - 1) * spacing;
+
     float visualDockHeight{config.padding.vertical() +
                            config.itemMargin.vertical() + baseSize};
 
@@ -141,14 +164,18 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     float baseBottomY{dockY + config.padding.top + config.itemMargin.top +
                       baseSize};
 
-    updateDockAnimations(items, hoverX, hoverY, startX, baseBottomY,
-                         baseSize + spacing, baseSize, dt);
+    updateDockAnimations(items, config.separator, hoverX, hoverY, startX,
+                         baseBottomY, spacing, baseSize, dt);
 
     float animatedWidth{config.padding.horizontal() +
                         config.itemMargin.horizontal()};
 
     for (int i{0}; i < itemCount; i++) {
-        animatedWidth += baseSize * items[i].scale();
+        if (isSeparator(items[i])) {
+            animatedWidth += sepThickness;
+        } else {
+            animatedWidth += baseSize * std::get<DockItem>(items[i]).scale();
+        }
 
         if (i != itemCount - 1) {
             animatedWidth += spacing;
@@ -169,8 +196,14 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
             mouseCtx.lastClickIndex = -1;
 
             for (int i{0}; i < itemCount; i++) {
-                float iconSize{baseSize * items[i].scale()};
-                float iconBottom{baseBottomY + items[i].lift()};
+                if (isSeparator(items[i])) {
+                    cx += sepThickness + spacing;
+                    continue;
+                }
+
+                auto& item{std::get<DockItem>(items[i])};
+                float iconSize{baseSize * item.scale()};
+                float iconBottom{baseBottomY + item.lift()};
                 float iconTop{iconBottom - iconSize};
                 bool insideY{mouseCtx.clickY >= iconTop &&
                              mouseCtx.clickY <= iconBottom};
@@ -185,7 +218,8 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
             }
 
             if (mouseCtx.lastClickIndex != -1) {
-                auto& clickedItem{items.at(mouseCtx.lastClickIndex)};
+                auto& clickedItem{
+                    std::get<DockItem>(items.at(mouseCtx.lastClickIndex))};
                 clickedItem.app.launch();
             }
         }
@@ -202,8 +236,14 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
             float clickedIconSize{0.f};
 
             for (int i{0}; i < itemCount; i++) {
-                float iconSize{baseSize * items[i].scale()};
-                float iconBottom{baseBottomY + items[i].lift()};
+                if (isSeparator(items[i])) {
+                    cx += sepThickness + spacing;
+                    continue;
+                }
+
+                auto& item{std::get<DockItem>(items[i])};
+                float iconSize{baseSize * item.scale()};
+                float iconBottom{baseBottomY + item.lift()};
                 float iconTop{iconBottom - iconSize};
                 bool insideY{mouseCtx.rightClickY >= iconTop &&
                              mouseCtx.rightClickY <= iconBottom};
@@ -221,7 +261,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
             }
 
             if (clickedIndex != -1) {
-                auto& clickedItem{items.at(clickedIndex)};
+                auto& clickedItem{std::get<DockItem>(items.at(clickedIndex))};
                 const auto& actions{clickedItem.app.actions};
                 if (!actions.empty()) {
                     float menuItemHeight{
@@ -269,7 +309,22 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
 
     float currentX{dockX + config.padding.left + config.itemMargin.left};
     for (int i{0}; i < itemCount; i++) {
-        auto& item{items[i]};
+        if (isSeparator(items[i])) {
+            float sepHeight{baseSize * 0.7f};
+            float sepCenterY{baseBottomY - baseSize * 0.5f};
+            float sepY{sepCenterY - sepHeight * 0.5f};
+
+            nvgBeginPath(vg);
+            nvgRoundedRect(vg, currentX, sepY, config.separator.thickness,
+                           sepHeight, config.separator.borderRadius);
+            nvgFillColor(vg, config.separator.color.toNVG());
+            nvgFill(vg);
+
+            currentX += sepThickness + spacing;
+            continue;
+        }
+
+        auto& item{std::get<DockItem>(items[i])};
         auto iconPath{iconIndex.find(item.app)};
 
         float iconSize{baseSize * item.scale()};
@@ -292,8 +347,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
 
         if (item.active) {
             float dotRadius{config.activeDotSize * 0.5f};
-            float dotY{baseBottomY + dotRadius + 2.f +
-                       items[i].dotSpring.get()};
+            float dotY{baseBottomY + dotRadius + 2.f + item.dotSpring.get()};
 
             nvgBeginPath(vg);
             nvgCircle(vg, x, dotY, dotRadius);

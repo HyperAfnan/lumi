@@ -61,7 +61,7 @@ struct ContextMenuConfig {
 
 struct SeparatorConfig {
     float thickness{1.f};
-    ColorConfig color{1.f, 1.f, 1.f, 0.1f};
+    ColorConfig color{1.f, 1.f, 1.f, 0.3f};
     float borderRadius{0.f};
 };
 

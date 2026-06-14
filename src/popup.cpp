@@ -229,7 +229,7 @@ void Popup::render(NVGcontext* vg) {
     drawPopupBg(vg, 0.f, 0.f, width, height, popupRadius,
                 config.contextMenu.backgroundColor.toNVG());
 
-    auto& clickedItem{items.at(srcAppIndex)};
+    auto& clickedItem{std::get<DockItem>(items.at(srcAppIndex))};
     const auto& actions{clickedItem.app.actions};
 
     static bool prevPressed{false};

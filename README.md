@@ -83,10 +83,15 @@ looks:
     name: "sans"
     size: 13
     color: [255, 255, 255, 1.0]
+  separator:
+    thickness: 2
+    color: [255, 255, 255, 0.3]
+    borderRadius: 0
 
 items:
   - kitty
   - firefox
+  - separator: true
   - class: code
     Icon: code
     Exec: code
