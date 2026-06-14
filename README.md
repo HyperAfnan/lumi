@@ -37,6 +37,14 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
+## Tips
+
+### Icon index cache
+If there is any issue with icon loading from the icon index, consider deleting the icon cache file
+Icon cache file can be found at their locations
+- `$HOME/.cache/lumi`
+- `/tmp/lumi-cache`
+
 ## Usage
 
 Run the dock:
@@ -113,6 +121,7 @@ and lower GPU load.
 
 `looks.maxLiftAmount`
 Maximum vertical lift in pixels during hover.
+Keep this less as it can sometimes interfere with hover animations, ideally < 10.
 
 `looks.backgroundColor`
 The background color of the glass dock and context menus. Specified as a 4-element array `[R, G, B, A]`, where R, G, B are integers from `0` to `255`, and A is a float from `0.0` to `1.0`.

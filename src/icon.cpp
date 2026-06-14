@@ -80,6 +80,7 @@ void IconRenderer::draw(const fs::path& path, float cx, float cy, float size,
     nvgFill(vg);
 }
 
+// in memory icon index
 std::optional<std::string> parseGtkSettings(const fs::path& path) {
     std::ifstream file(path);
     if (!file) {
@@ -340,12 +341,19 @@ int directoryDistance(const IconEntry& entry, int iconSize, int iconScale) {
     return std::numeric_limits<int>::max();
 }
 
-IconIndex& IconIndex::get() {
-    static IconIndex instance;
+constexpr int DEFAULT_ICON_SIZE{48};
+constexpr int DEFAULT_ICON_SCALE{1};
+
+std::string getCacheKey(std::string_view iconName, int size, int scale) {
+    return std::format("{}:{}:{}", iconName, size, scale);
+};
+
+MemIconIndex& MemIconIndex::get() {
+    static MemIconIndex instance;
     return instance;
 }
 
-IconIndex::IconIndex() {
+MemIconIndex::MemIconIndex() {
     if (const auto home{getEnv("HOME")}; home) {
         roots.emplace_back(fs::path(*home) / ".local/share/icons");
         roots.emplace_back(fs::path(*home) / ".icons");
@@ -354,15 +362,16 @@ IconIndex::IconIndex() {
     roots.emplace_back("/usr/share/icons");
     roots.emplace_back("/usr/local/share/icons");
     roots.emplace_back("/usr/share/pixmaps");
+}
 
+void MemIconIndex::build() {
     currentTheme = detectCurrentTheme();
-
     if (currentTheme) loadThemeRecursive(*currentTheme);
 
     loadThemeRecursive("hicolor");
-}
+};
 
-void IconIndex::loadThemeRecursive(std::string_view themeName) {
+void MemIconIndex::loadThemeRecursive(std::string_view themeName) {
     if (themes.contains(themeName)) return;
 
     loadTheme(themeName);
@@ -373,7 +382,7 @@ void IconIndex::loadThemeRecursive(std::string_view themeName) {
     for (auto& parent : it->second.inherits) loadThemeRecursive(parent);
 }
 
-void IconIndex::loadTheme(std::string_view themeName) {
+void MemIconIndex::loadTheme(std::string_view themeName) {
     auto themeDir{findThemeDirectory(roots, themeName)};
 
     if (!themeDir) return;
@@ -386,15 +395,15 @@ void IconIndex::loadTheme(std::string_view themeName) {
     themes.emplace(themeName, std::move(theme));
 }
 
-void IconIndex::preload(const std::vector<App>& apps) {
+void MemIconIndex::preload(const std::vector<App>& apps) {
     for (const auto& app : apps) {
         find(app);
     }
 };
 
-std::optional<fs::path> IconIndex::find(std::string_view icon, int size,
-                                        int scale) const {
-    auto key{std::format("{}:{}:{}", icon, size, scale)};
+std::optional<fs::path> MemIconIndex::find(std::string_view icon, int size,
+                                           int scale) const {
+    auto key{getCacheKey(icon, size, scale)};
 
     if (auto it{lookupCache.find(key)}; it != lookupCache.end()) {
         return it->second;
@@ -428,17 +437,17 @@ std::optional<fs::path> IconIndex::find(std::string_view icon, int size,
     return std::nullopt;
 }
 
-std::optional<fs::path> IconIndex::find(const App& app) const {
+std::optional<fs::path> MemIconIndex::find(const App& app) const {
     if (!app.Icon) return std::nullopt;
 
     if (fs::exists(*app.Icon)) return *app.Icon;
 
-    return find(*app.Icon, 48, 1);
+    return find(*app.Icon, DEFAULT_ICON_SIZE, DEFAULT_ICON_SCALE);
 }
 
-std::optional<fs::path> IconIndex::lookupTheme(std::string_view themeName,
-                                               std::string_view iconName,
-                                               int size, int scale) const {
+std::optional<fs::path> MemIconIndex::lookupTheme(std::string_view themeName,
+                                                  std::string_view iconName,
+                                                  int size, int scale) const {
     auto themeIt{themes.find(std::string(themeName))};
 
     if (themeIt == themes.end()) return std::nullopt;
@@ -479,7 +488,7 @@ std::optional<fs::path> IconIndex::lookupTheme(std::string_view themeName,
     return std::nullopt;
 }
 
-std::optional<fs::path> IconIndex::lookupFallback(
+std::optional<fs::path> MemIconIndex::lookupFallback(
     std::string_view iconName) const {
     auto clonedRoots{roots};
     std::stable_partition(
@@ -503,7 +512,151 @@ std::optional<fs::path> IconIndex::lookupFallback(
     return std::nullopt;
 }
 
-void IconIndex::clear() {
+void MemIconIndex::clear() {
     themes.clear();
     lookupCache.clear();
+}
+
+// ─── IconIndex (persistent binary cache) ────────────────────────────────────
+
+static fs::path cacheDir() {
+    auto home{getEnv("HOME")};
+    return home ? fs::path(*home) / ".cache/lumi" : fs::path("/tmp/lumi-cache");
+}
+
+static constexpr std::uint32_t CACHE_MAGIC{0x4C554D49};
+static constexpr std::uint32_t CACHE_VERSION{1};
+
+IconIndex& IconIndex::get() {
+    static IconIndex instance;
+    return instance;
+}
+
+IconIndex::IconIndex() : cachePath{cacheDir() / "icon-cache"} {
+    fs::create_directories(cacheDir());
+    load();
+}
+
+bool IconIndex::load() {
+    std::ifstream file{cachePath, std::ios::binary};
+    if (!file) return false;
+
+    std::uint32_t magic, version, count;
+    file.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+    if (magic != CACHE_MAGIC) return false;
+
+    file.read(reinterpret_cast<char*>(&version), sizeof(version));
+    if (version != CACHE_VERSION) return false;
+
+    file.read(reinterpret_cast<char*>(&count), sizeof(count));
+
+    for (std::uint32_t i{0}; i < count; i++) {
+        std::uint32_t keyLen, valLen;
+        file.read(reinterpret_cast<char*>(&keyLen), sizeof(keyLen));
+        std::string key(keyLen, '\0');
+        file.read(key.data(), keyLen);
+
+        file.read(reinterpret_cast<char*>(&valLen), sizeof(valLen));
+        std::string val(valLen, '\0');
+        file.read(val.data(), valLen);
+
+        cache.emplace(std::move(key), fs::path{std::move(val)});
+    }
+
+    logger::info("loaded " + std::to_string(count) + " icon cache entries");
+    return true;
+}
+
+bool IconIndex::save() const {
+    std::ofstream file{cachePath, std::ios::binary | std::ios::trunc};
+    if (!file) {
+        logger::warning("failed to write icon cache");
+        return false;
+    }
+
+    std::uint32_t magic{CACHE_MAGIC};
+    std::uint32_t version{CACHE_VERSION};
+    std::uint32_t count{static_cast<std::uint32_t>(cache.size())};
+
+    file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+    file.write(reinterpret_cast<const char*>(&version), sizeof(version));
+    file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+
+    for (const auto& [key, val] : cache) {
+        std::uint32_t keyLen{static_cast<std::uint32_t>(key.size())};
+        auto valStr{val.string()};
+        std::uint32_t valLen{static_cast<std::uint32_t>(valStr.size())};
+
+        file.write(reinterpret_cast<const char*>(&keyLen), sizeof(keyLen));
+        file.write(key.data(), keyLen);
+        file.write(reinterpret_cast<const char*>(&valLen), sizeof(valLen));
+        file.write(valStr.data(), valLen);
+    }
+
+    logger::info("saved " + std::to_string(count) + " icon cache entries");
+    return true;
+}
+
+std::optional<fs::path> IconIndex::resolve(std::string_view iconName) {
+    if (auto it{cache.find(iconName)}; it != cache.end()) return it->second;
+
+    if (!built) {
+        memIndex.build();
+        built = true;
+    }
+
+    auto resolved{
+        memIndex.find(iconName, DEFAULT_ICON_SIZE, DEFAULT_ICON_SCALE)};
+    if (resolved) {
+        cache.emplace(iconName, *resolved);
+    }
+
+    // not sure if this is the best place to clear the memIndex, but it should
+    // be fine
+    if (built) {
+        memIndex.clear();
+        built = false;
+    }
+
+    return resolved;
+}
+
+std::optional<fs::path> IconIndex::find(const App& app) {
+    if (!app.Icon) return std::nullopt;
+    if (fs::exists(*app.Icon)) return *app.Icon;
+
+    return resolve(*app.Icon);
+}
+
+void IconIndex::preload(const std::vector<App>& apps) {
+    bool hadMissing{false};
+
+    for (const auto& app : apps) {
+        if (!app.Icon) continue;
+        if (fs::exists(*app.Icon)) continue;
+        if (cache.contains(*app.Icon)) continue;
+
+        if (!hadMissing) {
+            if (!built) {
+                memIndex.build();
+                built = true;
+            }
+            hadMissing = true;
+        }
+
+        auto resolved{
+            memIndex.find(*app.Icon, DEFAULT_ICON_SIZE, DEFAULT_ICON_SCALE)};
+        if (resolved) {
+            cache.emplace(*app.Icon, *resolved);
+        }
+    }
+
+    if (hadMissing) {
+        save();
+    }
+
+    if (built) {
+        memIndex.clear();
+        built = false;
+    }
 }
