@@ -5,6 +5,7 @@
 
 #include <filesystem>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "app.hpp"
@@ -25,9 +26,7 @@ struct SidesConfig {
 struct ColorConfig {
     float r, g, b, a;
 
-    inline NVGcolor toNVG() const { 
-        return nvgRGBAf(r, g, b, a); 
-    }
+    inline NVGcolor toNVG() const { return nvgRGBAf(r, g, b, a); }
 };
 
 struct FontConfig {
@@ -55,6 +54,17 @@ struct DockItem {
     float dotOffset() const { return dotSpring.get(); }
 };
 
+struct ContextMenuConfig {
+    ColorConfig backgroundColor{0.05f, 0.05f, 0.06f, 0.72f};
+    ColorConfig hoverColor{0.5f, 0.5f, 0.5f, 0.5f};
+};
+
+struct SeparatorConfig {
+    float thickness{1.f};
+    ColorConfig color{1.f, 1.f, 1.f, 0.3f};
+    float borderRadius{0.f};
+};
+
 namespace DockDefaults {
 constexpr float cornerRadius{28.f};
 
@@ -77,6 +87,8 @@ struct DockConfig {
     float cornerRadius{DockDefaults::cornerRadius};
     ColorConfig backgroundColor{DockDefaults::backgroundColor};
     FontConfig font;
+    ContextMenuConfig contextMenu;
+    SeparatorConfig separator;
 
     SidesConfig padding{DockDefaults::padding};
     SidesConfig margin{DockDefaults::margin};
@@ -91,7 +103,7 @@ struct DockConfig {
     float maxScale{DockDefaults::maxScale};
     float maxLiftAmount{DockDefaults::maxLiftAmount};
 
-    std::vector<DockItem> items;
+    std::vector<std::variant<bool, DockItem>> items;
 
     inline float dockHeight() const {
         return padding.vertical() + itemMargin.vertical() + itemSize +
@@ -140,5 +152,25 @@ struct DockConfig {
 
 DockItem makeItem(const std::string& className, bool active,
                   bool virtualApp = false);
+
+inline void handleAppVariant(std::variant<bool, DockItem>& itemVar,
+                             auto&& handler) {
+    if (std::holds_alternative<DockItem>(itemVar)) {
+        handler(std::get<DockItem>(itemVar));
+    }
+}
+
+inline std::vector<DockItem> filterItems(
+    const std::vector<std::variant<bool, DockItem>>& items) {
+    std::vector<DockItem> result;
+
+    for (const auto& itemVar : items) {
+        if (std::holds_alternative<DockItem>(itemVar)) {
+            result.push_back(std::get<DockItem>(itemVar));
+        }
+    }
+
+    return result;
+};
 
 #endif

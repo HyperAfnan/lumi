@@ -61,18 +61,21 @@ struct Theme {
     std::unordered_map<std::string, std::vector<IconEntry>> icons;
 };
 
-class IconIndex {
+class IconIndex;
+
+class MemIconIndex {
+    friend class IconIndex;
+
    public:
-    static IconIndex& get();
+    static MemIconIndex& get();
 
     std::optional<fs::path> find(const App& app) const;
-
     void preload(const std::vector<App>& apps);
-
     void clear();
+    void build();
 
    private:
-    IconIndex();
+    MemIconIndex();
 
     std::optional<fs::path> find(std::string_view iconName, int size = 48,
                                  int scale = 1) const;
@@ -95,6 +98,31 @@ class IconIndex {
     std::optional<fs::path> lookupTheme(std::string_view themeName,
                                         std::string_view iconName, int size,
                                         int scale) const;
+};
+
+class IconIndex {
+   public:
+    static IconIndex& get();
+
+    std::optional<fs::path> find(const App& app);
+    void preload(const std::vector<App>& apps);
+
+   private:
+    IconIndex();
+    ~IconIndex() = default;
+
+    IconIndex(const IconIndex&) = delete;
+    IconIndex& operator=(const IconIndex&) = delete;
+
+    bool load();
+    bool save() const;
+    std::optional<fs::path> resolve(std::string_view iconName);
+
+    std::unordered_map<std::string, fs::path, TransparentHash, TransparentEqual>
+        cache;
+    fs::path cachePath;
+    MemIconIndex memIndex;
+    bool built{false};
 };
 
 #endif  // ICON_HPP
