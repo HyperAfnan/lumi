@@ -25,7 +25,7 @@ bool icontains(std::string_view a, std::string_view b) {
 };
 
 std::string toLower(std::string_view str) {
-    std::string result(str);
+    std::string result{str};
     std::ranges::transform(result, result.begin(), ::tolower);
     return result;
 };
@@ -72,22 +72,22 @@ std::string trim(std::string_view str) {
 }
 
 std::optional<std::string> getFontPath(const std::string& family) {
-    static bool fcInitialized = false;
+    static bool fcInitialized{false};
     if (!fcInitialized) {
         FcInit();
         fcInitialized = true;
     }
 
-    FcPattern* pat = FcNameParse(reinterpret_cast<const FcChar8*>(family.c_str()));
+    FcPattern* pat{FcNameParse(reinterpret_cast<const FcChar8*>(family.c_str()))};
     FcConfigSubstitute(nullptr, pat, FcMatchPattern);
     FcDefaultSubstitute(pat);
 
     std::optional<std::string> result;
     FcResult res;
     
-    FcPattern* font = FcFontMatch(nullptr, pat, &res);
+    FcPattern* font{FcFontMatch(nullptr, pat, &res)};
     if (font) {
-        FcChar8* file = nullptr;
+        FcChar8* file{nullptr};
         if (FcPatternGetString(font, FC_FILE, 0, &file) == FcResultMatch) {
             result = std::string(reinterpret_cast<const char*>(file));
         }

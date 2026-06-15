@@ -75,7 +75,7 @@ static void xdg_wm_base_ping(void*, xdg_wm_base* xdgWmBase, uint32_t serial) {
     xdg_wm_base_pong(xdgWmBase, serial);
 }
 
-static constexpr xdg_wm_base_listener xdgWmBaseListener = {
+static constexpr xdg_wm_base_listener xdgWmBaseListener{
     .ping = xdg_wm_base_ping,
 };
 
@@ -268,20 +268,20 @@ static std::vector<std::string> parseUriList(const std::string& uriList) {
 }
 
 void WaylandContext::data_offer_offer(void*, wl_data_offer* offer, const char* mimeType) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
     if (mouseCtx.pendingOffer == offer && std::strcmp(mimeType, "text/uri-list") == 0) {
         mouseCtx.hasUriList = true;
     }
 }
 
-const wl_data_offer_listener WaylandContext::offerListener = {
+const wl_data_offer_listener WaylandContext::offerListener{
     .offer = WaylandContext::data_offer_offer,
     .source_actions = [](void*, wl_data_offer*, uint32_t) {},
     .action = [](void*, wl_data_offer*, uint32_t) {},
 };
 
 void WaylandContext::data_device_data_offer(void*, wl_data_device*, wl_data_offer* offer) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
 
     // Destroy any previous pending offer that was never used
     if (mouseCtx.pendingOffer) {
@@ -294,7 +294,7 @@ void WaylandContext::data_device_data_offer(void*, wl_data_device*, wl_data_offe
 }
 
 void WaylandContext::data_device_enter(void*, wl_data_device*, uint32_t serial, wl_surface* surface, wl_fixed_t x, wl_fixed_t y, wl_data_offer* offer) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
     mouseCtx.x = wl_fixed_to_double(x);
     mouseCtx.y = wl_fixed_to_double(y);
     mouseCtx.inside = true;
@@ -313,7 +313,7 @@ void WaylandContext::data_device_enter(void*, wl_data_device*, uint32_t serial, 
 }
 
 void WaylandContext::data_device_leave(void*, wl_data_device*) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
 
     if (mouseCtx.dndOffer) {
         wl_data_offer_destroy(mouseCtx.dndOffer);
@@ -330,13 +330,13 @@ void WaylandContext::data_device_leave(void*, wl_data_device*) {
 }
 
 void WaylandContext::data_device_motion(void*, wl_data_device*, uint32_t, wl_fixed_t x, wl_fixed_t y) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
     mouseCtx.x = wl_fixed_to_double(x);
     mouseCtx.y = wl_fixed_to_double(y);
 }
 
 void WaylandContext::data_device_drop(void*, wl_data_device*) {
-    auto& mouseCtx = MouseContext::get();
+    auto& mouseCtx{MouseContext::get()};
     if (mouseCtx.dndHoverIndex == -1 || !mouseCtx.dndOffer || !mouseCtx.hasUriList) {
         if (mouseCtx.dndOffer) {
             wl_data_offer_destroy(mouseCtx.dndOffer);
@@ -363,7 +363,7 @@ void WaylandContext::data_device_drop(void*, wl_data_device*) {
     wl_display_flush(WaylandContext::get().display);
 
     // Make the read end non-blocking
-    int flags = fcntl(fds[0], F_GETFL, 0);
+    int flags{fcntl(fds[0], F_GETFL, 0)};
     fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
 
     std::string uriList;
@@ -385,10 +385,10 @@ void WaylandContext::data_device_drop(void*, wl_data_device*) {
     }
     close(fds[0]);
 
-    std::vector<std::string> paths = parseUriList(uriList);
+    std::vector<std::string> paths{parseUriList(uriList)};
 
     if (!paths.empty()) {
-        auto& config = DockConfig::get();
+        auto& config{DockConfig::get()};
         config.items[mouseCtx.dndHoverIndex].app.launch(paths);
     }
 
@@ -401,7 +401,7 @@ void WaylandContext::data_device_drop(void*, wl_data_device*) {
     mouseCtx.dndHoverIndex = -1;
 }
 
-const wl_data_device_listener WaylandContext::dataDeviceListener = {
+const wl_data_device_listener WaylandContext::dataDeviceListener{
     .data_offer = WaylandContext::data_device_data_offer,
     .enter = WaylandContext::data_device_enter,
     .leave = WaylandContext::data_device_leave,

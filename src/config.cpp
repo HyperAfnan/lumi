@@ -66,10 +66,10 @@ inline ColorConfig _parseColor(ryml::ConstNodeRef node, const ColorConfig& def) 
         return def;
     }
 
-    float r = nodeFloat(node[0], def.r * 255.f);
-    float g = nodeFloat(node[1], def.g * 255.f);
-    float b = nodeFloat(node[2], def.b * 255.f);
-    float a = nodeFloat(node[3], def.a);
+    float r{nodeFloat(node[0], def.r * 255.f)};
+    float g{nodeFloat(node[1], def.g * 255.f)};
+    float b{nodeFloat(node[2], def.b * 255.f)};
+    float a{nodeFloat(node[3], def.a)};
 
     return ColorConfig{r / 255.f, g / 255.f, b / 255.f, a};
 }
@@ -134,7 +134,7 @@ bool DockConfig::reloadConfig() {
             }
 
             if (looksNode.has_child("font")) {
-                auto fontNode = looksNode["font"];
+                auto fontNode{looksNode["font"]};
                 if (fontNode.is_map()) {
                     if (fontNode.has_child("name") && fontNode["name"].has_val()) {
                         fontNode["name"] >> dockConfig.font.name;

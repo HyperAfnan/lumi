@@ -118,7 +118,7 @@ void App::launch(const std::vector<std::string>& files) const {
         return;
     }
 
-    std::string cmd = *Exec;
+    std::string cmd{*Exec};
 
     if (!files.empty()) {
         std::string fileArgs;

@@ -152,18 +152,18 @@ int main() {
         wl_display_flush(wl.display);
     };
 
-    auto configPath = DockConfig::configFile();
-    std::string configFilename = configPath.filename().string();
-    std::string configDir = configPath.parent_path().string();
+    auto configPath{DockConfig::configFile()};
+    std::string configFilename{configPath.filename().string()};
+    std::string configDir{configPath.parent_path().string()};
 
-    int inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+    int inotify_fd{inotify_init1(IN_NONBLOCK | IN_CLOEXEC)};
     if (inotify_fd < 0) {
         logger::error("Failed to initialize inotify");
     }
 
-    int watch_desc = inotify_add_watch(inotify_fd, configDir.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO);
+    inotify_add_watch(inotify_fd, configDir.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO);
 
-    int wl_fd = wl_display_get_fd(wl.display);
+    int wl_fd{wl_display_get_fd(wl.display)};
 
     struct pollfd fds[2];
     fds[0].fd = wl_fd;
@@ -177,7 +177,7 @@ int main() {
     while (!ls.closed) {
         wl_display_flush(wl.display);
 
-        int ret = poll(fds, 2, 16); 
+        int ret{poll(fds, 2, 16)}; 
 
         if (ret < 0) {
             if (errno == EINTR) continue;
@@ -198,7 +198,7 @@ int main() {
             ssize_t len;
 
             while ((len = read(inotify_fd, buffer, sizeof(buffer))) > 0) {
-                char *ptr = buffer;
+                char *ptr{buffer};
                 
                 while (ptr < buffer + len) {
                     event = (const struct inotify_event *)ptr;
@@ -218,11 +218,11 @@ int main() {
 
                             renderer.loadConfiguredFont();
 
-                            int newHeight = static_cast<int>(dockConfig.height());
-                            int marginTop = static_cast<int>(dockConfig.margin.top);
-                            int marginRight = static_cast<int>(dockConfig.margin.right);
-                            int marginBottom = static_cast<int>(dockConfig.margin.bottom);
-                            int marginLeft = static_cast<int>(dockConfig.margin.left);
+                            int newHeight{static_cast<int>(dockConfig.height())};
+                            int marginTop{static_cast<int>(dockConfig.margin.top)};
+                            int marginRight{static_cast<int>(dockConfig.margin.right)};
+                            int marginBottom{static_cast<int>(dockConfig.margin.bottom)};
+                            int marginLeft{static_cast<int>(dockConfig.margin.left)};
 
                             zwlr_layer_surface_v1_set_size(ls.layerSurface, 0, newHeight);
                             zwlr_layer_surface_v1_set_exclusive_zone(ls.layerSurface, dockConfig.surfaceHeight());

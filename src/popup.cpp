@@ -225,7 +225,7 @@ void Popup::render(NVGcontext* vg) {
     if (srcAppIndex < 0 || srcAppIndex >= static_cast<int>(items.size()))
         return;
 
-    float popupRadius = std::round(config.font.size * 0.3f + 8.f);
+    float popupRadius{std::round(config.font.size * 0.3f + 8.f)};
     drawPopupBg(vg, 0.f, 0.f, width, height, popupRadius, config.backgroundColor.toNVG());
 
     auto& clickedItem{items.at(srcAppIndex)};
@@ -233,16 +233,16 @@ void Popup::render(NVGcontext* vg) {
 
     static bool prevPressed{false};
 
-    float rowHeight = std::round(config.font.size * 2.f + 10.f);
-    float padding = std::round(config.font.size * 0.6f + 8.f);
-    float itemY = padding / 2.f;
+    float rowHeight{std::round(config.font.size * 2.f + 10.f)};
+    float padding{std::round(config.font.size * 0.6f + 8.f)};
+    float itemY{padding / 2.f};
 
-    float paddingX = std::round(config.font.size * 0.8f + 20.f);
-    float textX = paddingX / 2.f;
+    float paddingX{std::round(config.font.size * 0.8f + 20.f)};
+    float textX{paddingX / 2.f};
 
-    float hoverMargin = std::round(config.font.size * 0.2f + 3.f);
-    float hoverRadius = std::round(config.font.size * 0.2f + 3.f);
-    float hoverPadY = std::round(config.font.size * 0.05f + 1.f);
+    float hoverMargin{std::round(config.font.size * 0.2f + 3.f)};
+    float hoverRadius{std::round(config.font.size * 0.2f + 3.f)};
+    float hoverPadY{std::round(config.font.size * 0.05f + 1.f)};
 
     for (std::size_t i{0}; i < actions.size(); i++) {
         float rowY{itemY + i * rowHeight};

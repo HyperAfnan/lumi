@@ -255,7 +255,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                     for (const auto& action : actions) {
                         float bounds[4];
                         nvgTextBounds(vg, 0.f, 0.f, action.displayName.c_str(), nullptr, bounds);
-                        float w = bounds[2] - bounds[0];
+                        float w{bounds[2] - bounds[0]};
                         if (w > maxTextWidth) maxTextWidth = w;
                     }
                     nvgRestore(vg);

@@ -60,10 +60,10 @@ void Renderer::loadConfiguredFont() {
     auto& config{DockConfig::get()};
     
     if (nvgFindFont(vg, config.font.name.c_str()) == -1) {
-        auto path = getFontPath(config.font.name);
+        auto path{getFontPath(config.font.name)};
         
         if (path) {
-            int fontId = nvgCreateFont(vg, config.font.name.c_str(), path->c_str());
+            int fontId{nvgCreateFont(vg, config.font.name.c_str(), path->c_str())};
             if (fontId == -1) {
                 logger::error("NanoVG failed to load font file: " + *path);
             } else {
