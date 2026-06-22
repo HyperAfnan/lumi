@@ -203,7 +203,6 @@ int main() {
 
             while ((len = read(inotify_fd, buffer, sizeof(buffer))) > 0) {
                 char* ptr{buffer};
-
                 while (ptr < buffer + len) {
                     event = (const struct inotify_event*)ptr;
 

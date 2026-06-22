@@ -61,7 +61,6 @@ void Renderer::loadConfiguredFont() {
 
     if (nvgFindFont(vg, config.font.name.c_str()) == -1) {
         auto path{getFontPath(config.font.name)};
-
         if (path) {
             int fontId{
                 nvgCreateFont(vg, config.font.name.c_str(), path->c_str())};
