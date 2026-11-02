@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ranges>
+#include <unordered_set>
 
 #include "ini.hpp"
 #include "logger.hpp"
@@ -162,14 +163,50 @@ std::optional<fs::path> findThemeDirectory(const std::vector<fs::path>& roots,
     return std::nullopt;
 }
 
+using DirEntryInfo = std::pair<std::string, bool>;  // stem, isSvg
+using DirListingCache =
+    std::unordered_map<std::string, std::vector<DirEntryInfo>>;
+
+std::vector<DirEntryInfo> listIconFiles(const fs::path& dir) {
+    std::vector<DirEntryInfo> files;
+    std::error_code ec;
+
+    for (const auto& entry : fs::directory_iterator(dir, ec)) {
+        if (!entry.is_regular_file()) continue;
+
+        auto ext{entry.path().extension()};
+        if (ext != ".png" && ext != ".svg") continue;
+
+        files.emplace_back(entry.path().stem().string(), ext == ".svg");
+    }
+
+    if (ec) {
+        logger::warning("failed to read directory " + dir.string() + ": " +
+                        ec.message());
+    }
+
+    return files;
+}
+
 void parseDirectory(const fs::path& themeDir, const std::string& subdir,
-                    mINI::INIStructure& ini, Theme& theme) {
+                    mINI::INIStructure& ini, Theme& theme,
+                    DirListingCache& listings) {
     auto fullDir{themeDir / subdir};
-    if (!fs::exists(fullDir) || !fs::is_directory(fullDir)) {
+    std::error_code ec;
+    if (!fs::is_directory(fullDir, ec)) {
         logger::warning("Directory " + fullDir.string() +
                         " does not exist or is not a directory, skipping");
         return;
     }
+
+    auto canonical{fs::canonical(fullDir, ec)};
+    auto key{ec ? fullDir.lexically_normal().string() : canonical.string()};
+
+    auto listingIt{listings.find(key)};
+    if (listingIt == listings.end()) {
+        listingIt = listings.emplace(key, listIconFiles(fullDir)).first;
+    }
+    if (listingIt->second.empty()) return;
 
     IconEntry templateEntry;
 
@@ -225,28 +262,29 @@ void parseDirectory(const fs::path& themeDir, const std::string& subdir,
 
     std::uint32_t dirIndex{static_cast<std::uint32_t>(theme.dirPool.size())};
     theme.dirPool.push_back(fullDir);
-    bool usedPool{false};
 
-    for (const auto& file : fs::directory_iterator(fullDir)) {
-        if (!file.is_regular_file()) continue;
-
-        auto ext{file.path().extension()};
-        if (ext != ".png" && ext != ".svg") continue;
-
-        auto iconName{file.path().stem().string()};
+    for (const auto& [iconName, isSvg] : listingIt->second) {
         auto entry{templateEntry};
 
         entry.dirIndex = dirIndex;
-        entry.isSvg = (ext == ".svg");
+        entry.isSvg = isSvg;
 
         theme.icons[iconName].push_back(std::move(entry));
-        usedPool = true;
-    }
-
-    if (!usedPool) {
-        theme.dirPool.pop_back();
     }
 };
+
+std::vector<std::string> splitList(std::string_view value) {
+    std::vector<std::string> result;
+
+    for (auto part : value | std::views::split(',')) {
+        std::string item{part.begin(), part.end()};
+        item = trim(item);
+
+        if (!item.empty()) result.push_back(std::move(item));
+    }
+
+    return result;
+}
 
 void parseIndexTheme(const fs::path& dir, Theme& theme) {
     auto indexPath{dir / "index.theme"};
@@ -259,32 +297,28 @@ void parseIndexTheme(const fs::path& dir, Theme& theme) {
 
     auto inherits{ini["Icon Theme"]["inherits"]};
     if (!inherits.empty()) {
-        auto splitted{inherits | std::views::split(',') |
-                      std::ranges::to<std::set<std::string>>()};
-        if (!splitted.empty()) {
-            theme.inherits = std::move(splitted);
+        for (auto& parent : splitList(inherits)) {
+            theme.inherits.insert(std::move(parent));
         }
     }
 
     std::vector<std::string> dirs;
 
-    auto directories{ini["Icon Theme"]["Directories"]};
-    auto scaledDirs{ini["Icon Theme"]["ScaledDirectories"]};
-
-    if (!directories.empty()) {
-        auto splitted{directories | std::views::split(',') |
-                      std::ranges::to<std::vector<std::string>>()};
-        dirs.insert(dirs.end(), splitted.begin(), splitted.end());
+    for (auto& subdir : splitList(ini["Icon Theme"]["Directories"])) {
+        dirs.push_back(std::move(subdir));
     }
 
-    if (!scaledDirs.empty()) {
-        auto splitted{scaledDirs | std::views::split(',') |
-                      std::ranges::to<std::vector<std::string>>()};
-        dirs.insert(dirs.end(), splitted.begin(), splitted.end());
+    for (auto& subdir : splitList(ini["Icon Theme"]["ScaledDirectories"])) {
+        dirs.push_back(std::move(subdir));
     }
+
+    DirListingCache listings;
+    std::unordered_set<std::string> seen;
 
     for (auto& subdir : dirs) {
-        parseDirectory(dir, subdir, ini, theme);
+        if (!seen.insert(subdir).second) continue;
+
+        parseDirectory(dir, subdir, ini, theme, listings);
     }
 }
 
@@ -409,32 +443,27 @@ std::optional<fs::path> MemIconIndex::find(std::string_view icon, int size,
         return it->second;
     }
 
+    auto store{[&](std::optional<fs::path> result) {
+        lookupCache.emplace(key, result);
+
+        return result;
+    }};
+
     if (currentTheme) {
-        auto result{lookupTheme(*currentTheme, icon, size, scale)};
-
-        if (result) {
-            lookupCache[key] = *result;
-
-            return result;
+        if (auto result{lookupTheme(*currentTheme, icon, size, scale)}) {
+            return store(std::move(result));
         }
     }
 
-    auto result{lookupTheme("hicolor", icon, size, scale)};
-
-    if (result) {
-        lookupCache[key] = *result;
-
-        return result;
+    if (auto result{lookupTheme("hicolor", icon, size, scale)}) {
+        return store(std::move(result));
     }
 
-    auto fallback{lookupFallback(icon)};
-    if (fallback) {
-        lookupCache[key] = *fallback;
-
-        return fallback;
+    if (auto fallback{lookupFallback(icon)}) {
+        return store(std::move(fallback));
     }
 
-    return std::nullopt;
+    return store(std::nullopt);
 }
 
 std::optional<fs::path> MemIconIndex::find(const App& app) const {
@@ -611,13 +640,6 @@ std::optional<fs::path> IconIndex::resolve(std::string_view iconName) {
         cache.emplace(iconName, *resolved);
     }
 
-    // not sure if this is the best place to clear the memIndex, but it should
-    // be fine
-    if (built) {
-        memIndex.clear();
-        built = false;
-    }
-
     return resolved;
 }
 
@@ -653,10 +675,5 @@ void IconIndex::preload(const std::vector<App>& apps) {
 
     if (hadMissing) {
         save();
-    }
-
-    if (built) {
-        memIndex.clear();
-        built = false;
     }
 }

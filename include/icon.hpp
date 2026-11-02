@@ -86,8 +86,8 @@ class MemIconIndex {
                                TransparentEqual>
         themes;
 
-    mutable std::unordered_map<std::string, fs::path, TransparentHash,
-                               TransparentEqual>
+    mutable std::unordered_map<std::string, std::optional<fs::path>,
+                               TransparentHash, TransparentEqual>
         lookupCache;
 
     void loadTheme(std::string_view themeName);
