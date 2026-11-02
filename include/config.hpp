@@ -65,6 +65,12 @@ struct SeparatorConfig {
     float borderRadius{0.f};
 };
 
+struct AutoHideConfig {
+    bool enabled{false};
+    float hideDelay{0.4f};
+    float revealHeight{4.f};
+};
+
 namespace DockDefaults {
 constexpr float cornerRadius{28.f};
 
@@ -81,6 +87,7 @@ constexpr float activeDotSize{6.f};
 constexpr float maxScale{1.5f};
 constexpr float maxLiftAmount{2.f};
 constexpr ColorConfig backgroundColor{1.f, 1.f, 1.f, 0.08f};
+constexpr AutoHideConfig autoHide{false, 0.4f, 4.f};
 }  // namespace DockDefaults
 
 struct DockConfig {
@@ -89,6 +96,7 @@ struct DockConfig {
     FontConfig font;
     ContextMenuConfig contextMenu;
     SeparatorConfig separator;
+    AutoHideConfig autoHide{DockDefaults::autoHide};
 
     SidesConfig padding{DockDefaults::padding};
     SidesConfig margin{DockDefaults::margin};
@@ -121,6 +129,10 @@ struct DockConfig {
     }
 
     inline float surfaceHeight() const { return dockHeight() + margin.top; }
+
+    inline float exclusiveZone() const {
+        return autoHide.enabled ? 0.f : surfaceHeight();
+    }
 
     inline float extraAnimationSpace() const {
         float scaleRise{(maxScale > 1.f) ? ((itemSize * maxScale) - itemSize)

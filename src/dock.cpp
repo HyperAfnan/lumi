@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include "app.hpp"
+#include "autohide.hpp"
 #include "config.hpp"
 #include "context.hpp"
 #include "popup.hpp"
@@ -76,13 +77,18 @@ static void updateDockAnimations(
     float dockStartX, float baseBottomY, float spacing, float itemSize,
     float dt) {
     DockConfig& config{DockConfig::get()};
+    MouseContext& mouseCtx{MouseContext::get()};
 
     float influenceRadius{itemSize * 2.3f};
+
+    mouseCtx.dndHoverIndex = -1;
     float currentX{dockStartX};
+    int idx{0};
 
     for (auto& itemVar : items) {
         if (isSeparator(itemVar)) {
             currentX += separatorConfig.thickness + spacing;
+            idx++;
             continue;
         }
 
@@ -96,6 +102,15 @@ static void updateDockAnimations(
         float iconTop{iconBottom - iconSize};
 
         bool insideY{mouseY >= iconTop && mouseY <= iconBottom};
+
+        if (mouseCtx.dndActive) {
+            float iconLeft{iconCenter - iconSize * 0.5f};
+            float iconRight{iconCenter + iconSize * 0.5f};
+            if (insideY && mouseX >= iconLeft && mouseX <= iconRight) {
+                mouseCtx.dndHoverIndex = idx;
+            }
+        }
+
         float influence{
             insideY ? std::max(0.f, 1.f - distance / influenceRadius) : 0.f};
 
@@ -105,12 +120,17 @@ static void updateDockAnimations(
         float targetLift{
             (config.maxScale == 1.f) ? 0.f : -influence * config.maxLiftAmount};
 
+        if (mouseCtx.dndActive && mouseCtx.dndHoverIndex == idx) {
+            targetScale = config.maxScale * 1.1f;
+        }
+
         item.scaleSpring.setTarget(targetScale);
         item.liftSpring.setTarget(targetLift);
         item.scaleSpring.update(dt);
         item.liftSpring.update(dt);
 
         currentX += itemSize + spacing;
+        idx++;
     }
 }
 
@@ -147,13 +167,16 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                            config.itemMargin.vertical() + baseSize};
 
     float dockX{(w - estimatedWidth) * 0.5f};
-    float dockY{h - visualDockHeight};
+    float dockY{h - visualDockHeight + AutoHide::get().offset()};
     float startX{dockX + config.padding.left + config.itemMargin.left};
 
     float hoverX{-9999.f};
     float hoverY{-9999.f};
 
-    if (popup.isOpen()) {
+    if (mouseCtx.dndActive) {
+        hoverX = mouseCtx.x;
+        hoverY = mouseCtx.y;
+    } else if (popup.isOpen()) {
         hoverX = mouseCtx.rightClickX;
         hoverY = mouseCtx.rightClickY;
     } else if (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) {

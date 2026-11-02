@@ -87,6 +87,10 @@ looks:
     thickness: 2
     color: [255, 255, 255, 0.3]
     borderRadius: 0
+  autoHide:
+    enabled: false
+    hideDelay: 0.4
+    revealHeight: 4
 
 items:
   - kitty
@@ -127,6 +131,15 @@ and lower GPU load.
 `looks.maxLiftAmount`
 Maximum vertical lift in pixels during hover.
 Keep this less as it can sometimes interfere with hover animations, ideally < 10.
+
+`looks.autoHide`
+Auto-hide behavior for the dock. When enabled, the dock slides out of view and
+reveals when the pointer reaches the bottom edge of the screen. While enabled,
+the dock overlays application windows and reserves no work area.
+
+- `enabled`: Turn auto-hide on or off (default `false`).
+- `hideDelay`: Seconds the pointer must stay away before the dock hides (default `0.4`).
+- `revealHeight`: Height in pixels of the screen-edge strip that reveals the dock (default `4`).
 
 `looks.backgroundColor`
 The background color of the glass dock and context menus. Specified as a 4-element array `[R, G, B, A]`, where R, G, B are integers from `0` to `255`, and A is a float from `0.0` to `1.0`.

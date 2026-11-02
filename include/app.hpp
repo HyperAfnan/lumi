@@ -20,7 +20,7 @@ class App {
 
     App(std::string className, bool isVirtual = false);
     bool matchesAppId(std::string_view appId) const;
-    void launch() const;
+    void launch(const std::vector<std::string>& files = {}) const;
     void launchAction(const Action& action) const;
 
     // desktop entries

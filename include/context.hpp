@@ -38,6 +38,12 @@ class MouseContext {
     float rightClickY{0.f};
     std::uint32_t rightClickSerial{0};
 
+    bool dndActive{false};
+    int dndHoverIndex{-1};
+    wl_data_offer* dndOffer{nullptr};
+    wl_data_offer* pendingOffer{nullptr};
+    bool hasUriList{false};
+
     static MouseContext& get() {
         static MouseContext instance;
         return instance;
@@ -59,6 +65,8 @@ class WaylandContext {
     xdg_wm_base* xdgWmBase{nullptr};
     ext_foreign_toplevel_list_v1* extToplevelManager{nullptr};
     zwlr_foreign_toplevel_manager_v1* wlrToplevelManager{nullptr};
+    wl_data_device_manager* dataDeviceManager{nullptr};
+    wl_data_device* dataDevice{nullptr};
 
     BackendType backend{BackendType::None};
 
@@ -117,6 +125,17 @@ class WaylandContext {
         .axis_relative_direction = [](void*, wl_pointer*, std::uint32_t,
                                       std::uint32_t) {},
     };
+
+    static void data_device_data_offer(void*, wl_data_device*, wl_data_offer*);
+    static void data_device_enter(void*, wl_data_device*, uint32_t, wl_surface*, wl_fixed_t, wl_fixed_t, wl_data_offer*);
+    static void data_device_leave(void*, wl_data_device*);
+    static void data_device_motion(void*, wl_data_device*, uint32_t, wl_fixed_t, wl_fixed_t);
+    static void data_device_drop(void*, wl_data_device*);
+
+    static void data_offer_offer(void*, wl_data_offer*, const char*);
+    static const wl_data_offer_listener offerListener;
+
+    static const wl_data_device_listener dataDeviceListener;
 };
 
-#endif  // CONTEXT_HPP
+#endif
