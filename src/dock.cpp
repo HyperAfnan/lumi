@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include "app.hpp"
+#include "autohide.hpp"
 #include "config.hpp"
 #include "context.hpp"
 #include "popup.hpp"
@@ -79,7 +80,7 @@ static void updateDockAnimations(
     MouseContext& mouseCtx{MouseContext::get()};
 
     float influenceRadius{itemSize * 2.3f};
-    
+
     mouseCtx.dndHoverIndex = -1;
     float currentX{dockStartX};
     int idx{0};
@@ -101,7 +102,7 @@ static void updateDockAnimations(
         float iconTop{iconBottom - iconSize};
 
         bool insideY{mouseY >= iconTop && mouseY <= iconBottom};
-        
+
         if (mouseCtx.dndActive) {
             float iconLeft{iconCenter - iconSize * 0.5f};
             float iconRight{iconCenter + iconSize * 0.5f};
@@ -118,7 +119,7 @@ static void updateDockAnimations(
         float targetScale{1.f + influence * (config.maxScale - 1.f)};
         float targetLift{
             (config.maxScale == 1.f) ? 0.f : -influence * config.maxLiftAmount};
-            
+
         if (mouseCtx.dndActive && mouseCtx.dndHoverIndex == idx) {
             targetScale = config.maxScale * 1.1f;
         }
@@ -166,7 +167,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
                            config.itemMargin.vertical() + baseSize};
 
     float dockX{(w - estimatedWidth) * 0.5f};
-    float dockY{h - visualDockHeight};
+    float dockY{h - visualDockHeight + AutoHide::get().offset()};
     float startX{dockX + config.padding.left + config.itemMargin.left};
 
     float hoverX{-9999.f};

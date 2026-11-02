@@ -45,6 +45,25 @@ float childFloat(ryml::ConstNodeRef parent, const char* key, float fallback) {
     return nodeFloat(child, fallback);
 }
 
+bool nodeBool(ryml::ConstNodeRef node, bool fallback) {
+    if (!nodeHasValue(node)) return fallback;
+
+    bool value{fallback};
+    if (!ryml::read(node, &value)) {
+        logger::warning("expected a boolean value");
+        return fallback;
+    }
+
+    return value;
+}
+
+bool childBool(ryml::ConstNodeRef parent, const char* key, bool fallback) {
+    if (parent.invalid() || !parent.has_child(ryml::to_csubstr(key)))
+        return fallback;
+
+    return nodeBool(parent[ryml::to_csubstr(key)], fallback);
+}
+
 inline SidesConfig _parseSides(ryml::ConstNodeRef node,
                                const SidesConfig& def) {
     if (node.invalid() || node.is_seed()) return def;
@@ -104,6 +123,27 @@ inline SeparatorConfig _parseSeparatorConfig(ryml::ConstNodeRef node,
     if (node.has_child("borderRadius"))
         config.borderRadius =
             childFloat(node, "borderRadius", def.borderRadius);
+
+    return config;
+}
+
+inline AutoHideConfig _parseAutoHideConfig(ryml::ConstNodeRef node,
+                                           const AutoHideConfig& def) {
+    if (node.invalid() || node.is_seed()) return def;
+    if (!node.is_map()) {
+        logger::warning("autoHide must be a map");
+        return def;
+    }
+
+    AutoHideConfig config{def};
+
+    if (node.has_child("enabled"))
+        config.enabled = childBool(node, "enabled", def.enabled);
+    if (node.has_child("hideDelay"))
+        config.hideDelay = childFloat(node, "hideDelay", def.hideDelay);
+    if (node.has_child("revealHeight"))
+        config.revealHeight =
+            childFloat(node, "revealHeight", def.revealHeight);
 
     return config;
 }
@@ -186,6 +226,11 @@ bool DockConfig::reloadConfig() {
             if (looksNode.has_child("separator")) {
                 dockConfig.separator = _parseSeparatorConfig(
                     looksNode["separator"], dockConfig.separator);
+            }
+
+            if (looksNode.has_child("autoHide")) {
+                dockConfig.autoHide = _parseAutoHideConfig(
+                    looksNode["autoHide"], dockConfig.autoHide);
             }
 
             if (looksNode.has_child("font")) {

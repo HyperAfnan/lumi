@@ -32,7 +32,7 @@ LayerSurface::LayerSurface() {
 
     zwlr_layer_surface_v1_set_size(layerSurface, 0, height);
     zwlr_layer_surface_v1_set_exclusive_zone(layerSurface,
-                                             config.surfaceHeight());
+                                             config.exclusiveZone());
     zwlr_layer_surface_v1_set_anchor(layerSurface,
                                      ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
                                          ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
@@ -108,7 +108,7 @@ void LayerSurface::onConfigure(void* data, zwlr_layer_surface_v1* layerSurface,
 
         zwlr_layer_surface_v1_set_size(self.layerSurface, 0, self.height);
         zwlr_layer_surface_v1_set_exclusive_zone(self.layerSurface,
-                                                 config.surfaceHeight());
+                                                 config.exclusiveZone());
         zwlr_layer_surface_v1_set_anchor(
             self.layerSurface, ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
                                    ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |

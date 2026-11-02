@@ -9,6 +9,7 @@
 #include <chrono>
 #include <ranges>
 
+#include "autohide.hpp"
 #include "config.hpp"
 #include "context.hpp"
 #include "dock.hpp"
@@ -100,10 +101,31 @@ int main() {
         float visualDockHeight{dockConfig.padding.vertical() +
                                dockConfig.itemMargin.vertical() +
                                dockConfig.itemSize};
-        int regionHeight{static_cast<int>(visualDockHeight)};
-        int regionY{ls.height - regionHeight};
 
+        auto& autoHide{AutoHide::get()};
+        auto& mouseCtx{MouseContext::get()};
+
+        bool keepVisible{
+            (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) ||
+            popup.isOpen() || mouseCtx.dndActive || mouseCtx.pressed ||
+            mouseCtx.rightPressed};
+
+        autoHide.update(smoothedDt, dockConfig.autoHide.enabled,
+                        dockConfig.autoHide.hideDelay, keepVisible,
+                        visualDockHeight);
+
+        float slideOffset{autoHide.offset()};
+
+        int regionY{
+            static_cast<int>(ls.height - visualDockHeight + slideOffset)};
+        if (dockConfig.autoHide.enabled) {
+            int minRegionY{ls.height -
+                           static_cast<int>(dockConfig.autoHide.revealHeight)};
+            if (regionY > minRegionY) regionY = minRegionY;
+        }
         if (regionY < 0) regionY = 0;
+
+        int regionHeight{ls.height - regionY};
         if (regionHeight < 0) regionHeight = 0;
 
         static int lastRegionY{-1};
@@ -245,7 +267,7 @@ int main() {
                             zwlr_layer_surface_v1_set_size(ls.layerSurface, 0,
                                                            newHeight);
                             zwlr_layer_surface_v1_set_exclusive_zone(
-                                ls.layerSurface, dockConfig.surfaceHeight());
+                                ls.layerSurface, dockConfig.exclusiveZone());
                             zwlr_layer_surface_v1_set_margin(
                                 ls.layerSurface, marginTop, marginRight,
                                 marginBottom, marginLeft);
