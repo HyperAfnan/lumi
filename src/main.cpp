@@ -98,9 +98,7 @@ int main() {
         float alpha{0.2f};
         smoothedDt += (dt - smoothedDt) * alpha;
 
-        float visualDockHeight{dockConfig.padding.vertical() +
-                               dockConfig.itemMargin.vertical() +
-                               dockConfig.itemSize};
+        float visualDockHeight{getDockVisualHeight()};
 
         auto& autoHide{AutoHide::get()};
         auto& mouseCtx{MouseContext::get()};
@@ -116,24 +114,15 @@ int main() {
 
         float slideOffset{autoHide.offset()};
 
-        int regionY{
-            static_cast<int>(ls.height - visualDockHeight + slideOffset)};
-        if (dockConfig.autoHide.enabled) {
-            int minRegionY{ls.height -
-                           static_cast<int>(dockConfig.autoHide.revealHeight)};
-            if (regionY > minRegionY) regionY = minRegionY;
-        }
-        if (regionY < 0) regionY = 0;
+        DockRect inputRegion{calculateDockInputRegion(
+            ls.width, ls.height, slideOffset, dockConfig.autoHide.enabled,
+            dockConfig.autoHide.revealHeight)};
 
-        int regionHeight{ls.height - regionY};
-        if (regionHeight < 0) regionHeight = 0;
-
-        static int lastRegionY{-1};
-        static int lastRegionHeight{-1};
-        if (regionY != lastRegionY || regionHeight != lastRegionHeight) {
-            ls.setInputRegion(0, regionY, ls.width, regionHeight);
-            lastRegionY = regionY;
-            lastRegionHeight = regionHeight;
+        static DockRect lastInputRegion{-1, -1, -1, -1};
+        if (inputRegion != lastInputRegion) {
+            ls.setInputRegion(inputRegion.x, inputRegion.y, inputRegion.width,
+                              inputRegion.height);
+            lastInputRegion = inputRegion;
         }
 
         ls.applyPendingResize();

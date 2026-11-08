@@ -13,6 +13,102 @@ static bool isSeparator(const std::variant<bool, DockItem>& v) {
     return std::holds_alternative<bool>(v);
 }
 
+static float s_currentAnimatedWidth{-1.f};
+
+float getDockRestingWidth() {
+    const auto& config{DockConfig::get()};
+    const auto& items{config.items};
+    int appCount{0};
+    for (const auto& itemVar : items) {
+        if (!isSeparator(itemVar)) appCount++;
+    }
+    if (appCount == 0) return 0.f;
+
+    float baseSize{config.itemSize};
+    float spacing{config.itemSpacing};
+    float sepThickness{config.separator.thickness};
+
+    float width{config.padding.horizontal() + config.itemMargin.horizontal()};
+    for (const auto& itemVar : items) {
+        width += isSeparator(itemVar) ? sepThickness : baseSize;
+    }
+    if (!items.empty()) {
+        width += static_cast<float>(items.size() - 1) * spacing;
+    }
+    return width;
+}
+
+float getDockVisualHeight() {
+    const auto& config{DockConfig::get()};
+    return config.padding.vertical() + config.itemMargin.vertical() +
+           config.itemSize;
+}
+
+float getDockAnimatedWidth() {
+    if (s_currentAnimatedWidth > 0.f) {
+        return s_currentAnimatedWidth;
+    }
+    return getDockRestingWidth();
+}
+
+DockRect calculateDockInputRegion(int surfaceWidth, int surfaceHeight,
+                                  float slideOffset, bool autoHideEnabled,
+                                  float revealHeight) {
+    float restingW{getDockRestingWidth()};
+    if (restingW <= 0.f) {
+        return DockRect{0, 0, 0, 0};
+    }
+
+    const auto& config{DockConfig::get()};
+    float visualHeight{getDockVisualHeight()};
+    float animatedW{getDockAnimatedWidth()};
+
+    if (autoHideEnabled) {
+        float currentY{surfaceHeight - visualHeight + slideOffset};
+        float minRegionY{surfaceHeight - revealHeight};
+
+        if (currentY >= minRegionY) {
+            int rw{static_cast<int>(restingW)};
+            int rx{static_cast<int>((surfaceWidth - restingW) * 0.5f)};
+            int ry{static_cast<int>(minRegionY)};
+            int rh{static_cast<int>(revealHeight)};
+
+            if (rx < 0) {
+                rw += rx;
+                rx = 0;
+            }
+            if (rx + rw > surfaceWidth) rw = surfaceWidth - rx;
+            if (ry < 0) ry = 0;
+            if (ry + rh > surfaceHeight) rh = surfaceHeight - ry;
+            if (rw < 0) rw = 0;
+            if (rh < 0) rh = 0;
+
+            return DockRect{rx, ry, rw, rh};
+        }
+    }
+
+    float extraSpace{config.extraAnimationSpace()};
+    float currentY{surfaceHeight - visualHeight + slideOffset - extraSpace};
+    if (currentY < 0.f) currentY = 0.f;
+
+    int rw{static_cast<int>(animatedW)};
+    int rx{static_cast<int>((surfaceWidth - animatedW) * 0.5f)};
+    int ry{static_cast<int>(currentY)};
+    int rh{static_cast<int>(surfaceHeight - ry)};
+
+    if (rx < 0) {
+        rw += rx;
+        rx = 0;
+    }
+    if (rx + rw > surfaceWidth) rw = surfaceWidth - rx;
+    if (ry < 0) ry = 0;
+    if (ry + rh > surfaceHeight) rh = surfaceHeight - ry;
+    if (rw < 0) rw = 0;
+    if (rh < 0) rh = 0;
+
+    return DockRect{rx, ry, rw, rh};
+}
+
 void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,
                    NVGcolor bgColor) {
     // shadow
@@ -156,15 +252,8 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     float spacing{config.itemSpacing};
     float sepThickness{config.separator.thickness};
 
-    float estimatedWidth{config.padding.horizontal() +
-                         config.itemMargin.horizontal()};
-    for (const auto& itemVar : items) {
-        estimatedWidth += isSeparator(itemVar) ? sepThickness : baseSize;
-    }
-    if (itemCount > 0) estimatedWidth += (itemCount - 1) * spacing;
-
-    float visualDockHeight{config.padding.vertical() +
-                           config.itemMargin.vertical() + baseSize};
+    float estimatedWidth{getDockRestingWidth()};
+    float visualDockHeight{getDockVisualHeight()};
 
     float dockX{(w - estimatedWidth) * 0.5f};
     float dockY{h - visualDockHeight + AutoHide::get().offset()};
@@ -206,6 +295,7 @@ void handleDock(NVGcontext* vg, IconRenderer& iconRenderer, LayerSurface& ls,
     }
 
     dockX = (w - animatedWidth) * 0.5f;
+    s_currentAnimatedWidth = animatedWidth;
 
     static bool prevPressed{false};
     if (mouseCtx.pressed && !prevPressed) {
