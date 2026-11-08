@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ext-foreign-toplevel-list-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
@@ -21,6 +22,7 @@ class ToplevelBackend {
    public:
     virtual ~ToplevelBackend() = default;
     virtual void init(AppIds* appIdCount) = 0;
+    virtual bool hasActiveWindow() const { return true; }
 
     void setEvents(ToplevelEvents events) { this->events = std::move(events); }
 
@@ -33,6 +35,13 @@ class ExtForeignBackend : public ToplevelBackend {
     explicit ExtForeignBackend(ext_foreign_toplevel_list_v1* manager);
 
     void init(AppIds* appIdCount) override;
+    bool hasActiveWindow() const override {
+        if (!appIdCount) return false;
+        for (const auto& [_, count] : *appIdCount) {
+            if (count > 0) return true;
+        }
+        return false;
+    }
 
    private:
     ext_foreign_toplevel_list_v1* manager;
@@ -65,18 +74,23 @@ class WlrForeignBackend : public ToplevelBackend {
     explicit WlrForeignBackend(zwlr_foreign_toplevel_manager_v1* manager);
 
     void init(AppIds* appIdCount) override;
+    bool hasActiveWindow() const override { return !activeHandles.empty(); }
 
    private:
     zwlr_foreign_toplevel_manager_v1* manager;
 
     std::unordered_map<zwlr_foreign_toplevel_handle_v1*, std::string>
         handleAppIds;
+    std::unordered_set<zwlr_foreign_toplevel_handle_v1*> activeHandles;
 
     static void onManagerToplevel(void*, zwlr_foreign_toplevel_manager_v1*,
                                   zwlr_foreign_toplevel_handle_v1*);
 
     static void onHandleAppId(void*, zwlr_foreign_toplevel_handle_v1*,
                               const char*);
+
+    static void onHandleState(void*, zwlr_foreign_toplevel_handle_v1*,
+                              wl_array*);
 
     static void onHandleClosed(void*, zwlr_foreign_toplevel_handle_v1*);
 
@@ -92,7 +106,7 @@ class WlrForeignBackend : public ToplevelBackend {
                            wl_output*) {},
         .output_leave = [](void*, zwlr_foreign_toplevel_handle_v1*,
                            wl_output*) {},
-        .state = [](void*, zwlr_foreign_toplevel_handle_v1*, wl_array*) {},
+        .state = onHandleState,
         .done = [](void*, zwlr_foreign_toplevel_handle_v1*) {},
         .closed = onHandleClosed,
         .parent = [](void*, zwlr_foreign_toplevel_handle_v1*,
@@ -112,6 +126,10 @@ class ToplevelContext {
     void setBackend(std::unique_ptr<ToplevelBackend> backend);
 
     void replayOpenApps() const;
+
+    bool hasActiveWindow() const {
+        return backend ? backend->hasActiveWindow() : false;
+    }
 
    private:
     AppIds appIdCount;

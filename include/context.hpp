@@ -86,6 +86,17 @@ class WaylandContext {
    private:
     WaylandContext();
 
+    struct GlobalRef {
+        std::uint32_t name{0};
+        std::uint32_t version{0};
+    };
+    GlobalRef wlrToplevelGlobal{};
+    GlobalRef extToplevelGlobal{};
+    bool initialized{false};
+
+    void bindWlrForeign(std::uint32_t name, std::uint32_t version);
+    void bindExtForeign(std::uint32_t name, std::uint32_t version);
+
     wl_registry* registry{nullptr};
 
     static void onGlobal(void*, wl_registry*, std::uint32_t, const char*,

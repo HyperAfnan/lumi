@@ -21,6 +21,19 @@
 #include "surface.hpp"
 #include "toplevel.hpp"
 
+static void preloadDockIcons(IconIndex& iconIndex,
+                             const DockConfig& dockConfig) {
+    iconIndex.preload(
+        dockConfig.items |
+        std::views::filter([](const auto& v) {
+            return std::holds_alternative<DockItem>(v);
+        }) |
+        std::views::transform(
+            [](const auto& v) { return std::get<DockItem>(v); }) |
+        std::views::transform([](const DockItem& item) { return item.app; }) |
+        std::ranges::to<std::vector>());
+}
+
 int main() {
     auto& wl{WaylandContext::get()};
     auto& dockConfig{DockConfig::get()};
@@ -45,14 +58,7 @@ int main() {
     auto& iconIndex{IconIndex::get()};
     auto& toplevelCtx{ToplevelContext::get()};
 
-    iconIndex.preload(
-        dockConfig.items | std::views::filter([](const auto& v) {
-            return std::holds_alternative<DockItem>(v);
-        }) |
-        std::views::transform(
-            [](const auto& v) { return std::get<DockItem>(v); }) |
-        std::views::transform([](const DockItem& item) { return item.app; }) |
-        std::ranges::to<std::vector>());
+    preloadDockIcons(iconIndex, dockConfig);
 
     toplevelCtx.onAppOpen = [](std::string_view appId) {
         for (auto& item : DockConfig::get().items) {
@@ -98,17 +104,18 @@ int main() {
         float alpha{0.2f};
         smoothedDt += (dt - smoothedDt) * alpha;
 
-        float visualDockHeight{dockConfig.padding.vertical() +
-                               dockConfig.itemMargin.vertical() +
-                               dockConfig.itemSize};
+        float visualDockHeight{getDockVisualHeight()};
 
         auto& autoHide{AutoHide::get()};
         auto& mouseCtx{MouseContext::get()};
 
+        bool autoShowEmpty{dockConfig.autoHide.showWhenEmpty &&
+                           !toplevelCtx.hasActiveWindow()};
+
         bool keepVisible{
             (mouseCtx.inside && mouseCtx.currentSurface == ls.surface) ||
             popup.isOpen() || mouseCtx.dndActive || mouseCtx.pressed ||
-            mouseCtx.rightPressed};
+            mouseCtx.rightPressed || autoShowEmpty};
 
         autoHide.update(smoothedDt, dockConfig.autoHide.enabled,
                         dockConfig.autoHide.hideDelay, keepVisible,
@@ -116,24 +123,15 @@ int main() {
 
         float slideOffset{autoHide.offset()};
 
-        int regionY{
-            static_cast<int>(ls.height - visualDockHeight + slideOffset)};
-        if (dockConfig.autoHide.enabled) {
-            int minRegionY{ls.height -
-                           static_cast<int>(dockConfig.autoHide.revealHeight)};
-            if (regionY > minRegionY) regionY = minRegionY;
-        }
-        if (regionY < 0) regionY = 0;
+        DockRect inputRegion{calculateDockInputRegion(
+            ls.width, ls.height, slideOffset, dockConfig.autoHide.enabled,
+            dockConfig.autoHide.revealHeight)};
 
-        int regionHeight{ls.height - regionY};
-        if (regionHeight < 0) regionHeight = 0;
-
-        static int lastRegionY{-1};
-        static int lastRegionHeight{-1};
-        if (regionY != lastRegionY || regionHeight != lastRegionHeight) {
-            ls.setInputRegion(0, regionY, ls.width, regionHeight);
-            lastRegionY = regionY;
-            lastRegionHeight = regionHeight;
+        static DockRect lastInputRegion{-1, -1, -1, -1};
+        if (inputRegion != lastInputRegion) {
+            ls.setInputRegion(inputRegion.x, inputRegion.y, inputRegion.width,
+                              inputRegion.height);
+            lastInputRegion = inputRegion;
         }
 
         ls.applyPendingResize();
@@ -236,18 +234,7 @@ int main() {
                                 popup.destroy();
                             }
 
-                            iconIndex.preload(
-                                dockConfig.items |
-                                std::views::filter([](const auto& v) {
-                                    return std::holds_alternative<DockItem>(v);
-                                }) |
-                                std::views::transform([](const auto& v) {
-                                    return std::get<DockItem>(v);
-                                }) |
-                                std::views::transform([](const DockItem& item) {
-                                    return item.app;
-                                }) |
-                                std::ranges::to<std::vector>());
+                            preloadDockIcons(iconIndex, dockConfig);
 
                             toplevelCtx.replayOpenApps();
 
