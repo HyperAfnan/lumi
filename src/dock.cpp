@@ -15,7 +15,7 @@ static bool isSeparator(const std::variant<bool, DockItem>& v) {
 
 static float s_currentAnimatedWidth{-1.f};
 
-float getDockRestingWidth() {
+static float getDockRestingWidth() {
     const auto& config{DockConfig::get()};
     const auto& items{config.items};
     int appCount{0};
@@ -44,11 +44,26 @@ float getDockVisualHeight() {
            config.itemSize;
 }
 
-float getDockAnimatedWidth() {
+static float getDockAnimatedWidth() {
     if (s_currentAnimatedWidth > 0.f) {
         return s_currentAnimatedWidth;
     }
     return getDockRestingWidth();
+}
+
+static DockRect clampRectToSurface(int rx, int ry, int rw, int rh,
+                                   int surfaceWidth, int surfaceHeight) {
+    if (rx < 0) {
+        rw += rx;
+        rx = 0;
+    }
+    if (rx + rw > surfaceWidth) rw = surfaceWidth - rx;
+    if (ry < 0) ry = 0;
+    if (ry + rh > surfaceHeight) rh = surfaceHeight - ry;
+    if (rw < 0) rw = 0;
+    if (rh < 0) rh = 0;
+
+    return DockRect{rx, ry, rw, rh};
 }
 
 DockRect calculateDockInputRegion(int surfaceWidth, int surfaceHeight,
@@ -73,17 +88,8 @@ DockRect calculateDockInputRegion(int surfaceWidth, int surfaceHeight,
             int ry{static_cast<int>(minRegionY)};
             int rh{static_cast<int>(revealHeight)};
 
-            if (rx < 0) {
-                rw += rx;
-                rx = 0;
-            }
-            if (rx + rw > surfaceWidth) rw = surfaceWidth - rx;
-            if (ry < 0) ry = 0;
-            if (ry + rh > surfaceHeight) rh = surfaceHeight - ry;
-            if (rw < 0) rw = 0;
-            if (rh < 0) rh = 0;
-
-            return DockRect{rx, ry, rw, rh};
+            return clampRectToSurface(rx, ry, rw, rh, surfaceWidth,
+                                      surfaceHeight);
         }
     }
 
@@ -96,17 +102,7 @@ DockRect calculateDockInputRegion(int surfaceWidth, int surfaceHeight,
     int ry{static_cast<int>(currentY)};
     int rh{static_cast<int>(surfaceHeight - ry)};
 
-    if (rx < 0) {
-        rw += rx;
-        rx = 0;
-    }
-    if (rx + rw > surfaceWidth) rw = surfaceWidth - rx;
-    if (ry < 0) ry = 0;
-    if (ry + rh > surfaceHeight) rh = surfaceHeight - ry;
-    if (rw < 0) rw = 0;
-    if (rh < 0) rh = 0;
-
-    return DockRect{rx, ry, rw, rh};
+    return clampRectToSurface(rx, ry, rw, rh, surfaceWidth, surfaceHeight);
 }
 
 void drawGlassDock(NVGcontext* vg, float x, float y, float w, float h, float r,

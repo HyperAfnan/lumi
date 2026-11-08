@@ -69,6 +69,7 @@ struct AutoHideConfig {
     bool enabled{false};
     float hideDelay{0.4f};
     float revealHeight{4.f};
+    bool showWhenEmpty{true};
 };
 
 namespace DockDefaults {
@@ -87,7 +88,7 @@ constexpr float activeDotSize{6.f};
 constexpr float maxScale{1.5f};
 constexpr float maxLiftAmount{2.f};
 constexpr ColorConfig backgroundColor{1.f, 1.f, 1.f, 0.08f};
-constexpr AutoHideConfig autoHide{false, 0.4f, 4.f};
+constexpr AutoHideConfig autoHide{false, 0.4f, 4.f, true};
 }  // namespace DockDefaults
 
 struct DockConfig {

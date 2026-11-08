@@ -48,6 +48,16 @@ WaylandContext::WaylandContext() {
         std::exit(EXIT_FAILURE);
     }
 
+    if (wlrToplevelGlobal.name != 0) {
+        bindWlrForeign(wlrToplevelGlobal.name, wlrToplevelGlobal.version);
+    } else if (extToplevelGlobal.name != 0) {
+        bindExtForeign(extToplevelGlobal.name, extToplevelGlobal.version);
+    }
+
+    roundtrip();
+
+    initialized = true;
+
     logger::info("Wayland globals ready");
 }
 
@@ -71,6 +81,30 @@ void WaylandContext::roundtrip() const { wl_display_roundtrip(display); }
 
 int WaylandContext::dispatch() const { return wl_display_dispatch(display); }
 
+void WaylandContext::bindWlrForeign(std::uint32_t name, std::uint32_t version) {
+    if (backend != BackendType::None) return;
+    wlrToplevelManager = static_cast<zwlr_foreign_toplevel_manager_v1*>(
+        wl_registry_bind(registry, name,
+                         &zwlr_foreign_toplevel_manager_v1_interface,
+                         std::min(version, WLR_FOREIGN_VERSION)));
+    logger::info("Found wlr-foreign-toplevel-management");
+    backend = BackendType::WlrForeign;
+    ToplevelContext::get().setBackend(
+        std::make_unique<WlrForeignBackend>(wlrToplevelManager));
+}
+
+void WaylandContext::bindExtForeign(std::uint32_t name, std::uint32_t version) {
+    if (backend != BackendType::None) return;
+    extToplevelManager = static_cast<ext_foreign_toplevel_list_v1*>(
+        wl_registry_bind(registry, name,
+                         &ext_foreign_toplevel_list_v1_interface,
+                         std::min(version, EXT_FOREIGN_VERSION)));
+    logger::info("Found ext-foreign-toplevel-list-v1");
+    backend = BackendType::ExtForeign;
+    ToplevelContext::get().setBackend(
+        std::make_unique<ExtForeignBackend>(extToplevelManager));
+}
+
 static void xdg_wm_base_ping(void*, xdg_wm_base* xdgWmBase, uint32_t serial) {
     xdg_wm_base_pong(xdgWmBase, serial);
 }
@@ -83,7 +117,6 @@ void WaylandContext::onGlobal(void* data, wl_registry* registry,
                               std::uint32_t name, const char* interface,
                               std::uint32_t version) {
     auto& self{*static_cast<WaylandContext*>(data)};
-    auto& toplevelCtx{ToplevelContext::get()};
 
     if (std::strcmp(interface, wl_compositor_interface.name) == 0) {
         self.compositor = static_cast<wl_compositor*>(
@@ -105,32 +138,18 @@ void WaylandContext::onGlobal(void* data, wl_registry* registry,
                              std::min(version, SEAT_VERSION)));
         wl_seat_add_listener(self.seat, &seatListener, &self);
     } else if (std::strcmp(interface,
-                           ext_foreign_toplevel_list_v1_interface.name) == 0 &&
-               self.backend == BackendType::None) {
-        self.extToplevelManager =
-            static_cast<ext_foreign_toplevel_list_v1*>(wl_registry_bind(
-                registry, name, &ext_foreign_toplevel_list_v1_interface,
-                std::min(version, EXT_FOREIGN_VERSION)));
-
-        logger::info("Found ext-foreign-toplevel-list-v1");
-
-        self.backend = BackendType::ExtForeign;
-        toplevelCtx.setBackend(
-            std::make_unique<ExtForeignBackend>(self.extToplevelManager));
-    } else if (std::strcmp(interface,
                            zwlr_foreign_toplevel_manager_v1_interface.name) ==
-                   0 &&
-               self.backend == BackendType::None) {
-        self.wlrToplevelManager =
-            static_cast<zwlr_foreign_toplevel_manager_v1*>(wl_registry_bind(
-                registry, name, &zwlr_foreign_toplevel_manager_v1_interface,
-                std::min(version, WLR_FOREIGN_VERSION)));
-
-        logger::info("Found wlr-foreign-toplevel-management");
-
-        self.backend = BackendType::WlrForeign;
-        toplevelCtx.setBackend(
-            std::make_unique<WlrForeignBackend>(self.wlrToplevelManager));
+                   0) {
+        self.wlrToplevelGlobal = {name, version};
+        if (self.initialized) {
+            self.bindWlrForeign(name, version);
+        }
+    } else if (std::strcmp(interface,
+                           ext_foreign_toplevel_list_v1_interface.name) == 0) {
+        self.extToplevelGlobal = {name, version};
+        if (self.initialized && self.wlrToplevelGlobal.name == 0) {
+            self.bindExtForeign(name, version);
+        }
     } else if (std::strcmp(interface, wl_data_device_manager_interface.name) == 0) {
         self.dataDeviceManager = static_cast<wl_data_device_manager*>(
             wl_registry_bind(registry, name, &wl_data_device_manager_interface, 3));

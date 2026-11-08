@@ -140,6 +140,7 @@ the dock overlays application windows and reserves no work area.
 - `enabled`: Turn auto-hide on or off (default `false`).
 - `hideDelay`: Seconds the pointer must stay away before the dock hides (default `0.4`).
 - `revealHeight`: Height in pixels of the screen-edge strip that reveals the dock (default `4`).
+- `showWhenEmpty`: Keep dock visible when no application windows are open (default `true`).
 
 `looks.backgroundColor`
 The background color of the glass dock and context menus. Specified as a 4-element array `[R, G, B, A]`, where R, G, B are integers from `0` to `255`, and A is a float from `0.0` to `1.0`.

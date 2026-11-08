@@ -144,6 +144,9 @@ inline AutoHideConfig _parseAutoHideConfig(ryml::ConstNodeRef node,
     if (node.has_child("revealHeight"))
         config.revealHeight =
             childFloat(node, "revealHeight", def.revealHeight);
+    if (node.has_child("showWhenEmpty"))
+        config.showWhenEmpty =
+            childBool(node, "showWhenEmpty", def.showWhenEmpty);
 
     return config;
 }

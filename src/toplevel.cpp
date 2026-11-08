@@ -26,6 +26,58 @@ void ToplevelContext::replayOpenApps() const {
     }
 }
 
+template <typename Handle>
+static void handleAppIdUpdate(
+    std::unordered_map<Handle, std::string>& handleAppIds,
+    AppIds* appIdCount,
+    const ToplevelEvents& events,
+    Handle handle,
+    const char* appId) {
+    if (!appIdCount) return;
+
+    auto& current{handleAppIds[handle]};
+
+    if (!current.empty()) {
+        auto it{appIdCount->find(current)};
+        if (it != appIdCount->end()) {
+            if (--it->second == 0) {
+                appIdCount->erase(it);
+                if (events.appClosed && *events.appClosed)
+                    (*events.appClosed)(current);
+            }
+        }
+    }
+
+    current = appId;
+    auto& count{(*appIdCount)[current]};
+    ++count;
+
+    if (events.appOpened && *events.appOpened)
+        (*events.appOpened)(current);
+}
+
+template <typename Handle>
+static void handleClosedCleanup(
+    std::unordered_map<Handle, std::string>& handleAppIds,
+    AppIds* appIdCount,
+    const ToplevelEvents& events,
+    Handle handle) {
+    if (auto it{handleAppIds.find(handle)}; it != handleAppIds.end()) {
+        const auto appId{it->second};
+        if (!appId.empty() && appIdCount) {
+            auto countIt{appIdCount->find(appId)};
+            if (countIt != appIdCount->end()) {
+                if (--countIt->second == 0) {
+                    appIdCount->erase(countIt);
+                    if (events.appClosed && *events.appClosed)
+                        (*events.appClosed)(appId);
+                }
+            }
+        }
+        handleAppIds.erase(it);
+    }
+}
+
 ExtForeignBackend::ExtForeignBackend(ext_foreign_toplevel_list_v1* manager)
     : manager{manager} {}
 
@@ -47,53 +99,14 @@ void ExtForeignBackend::onHandleAppId(void* data,
                                       ext_foreign_toplevel_handle_v1* handle,
                                       const char* appId) {
     auto& self{*static_cast<ExtForeignBackend*>(data)};
-    auto& current{self.handleAppIds[handle]};
-
-    if (!current.empty()) {
-        auto it{self.appIdCount->find(current)};
-
-        if (it != self.appIdCount->end()) {
-            if (--it->second == 0) {
-                self.appIdCount->erase(it);
-
-                if (self.events.appClosed && *self.events.appClosed)
-                    (*self.events.appClosed)(current);
-            }
-        }
-    }
-
-    current = appId;
-
-    auto& count{self.appIdCount->operator[](current)};
-
-    ++count;
-
-    if (self.events.appOpened && *self.events.appOpened)
-        (*self.events.appOpened)(current);
+    handleAppIdUpdate(self.handleAppIds, self.appIdCount, self.events, handle,
+                      appId);
 }
 
 void ExtForeignBackend::onHandleClosed(void* data,
                                        ext_foreign_toplevel_handle_v1* handle) {
     auto& self{*static_cast<ExtForeignBackend*>(data)};
-
-    if (auto it{self.handleAppIds.find(handle)};
-        it != self.handleAppIds.end()) {
-        const auto appId{it->second};
-
-        if (!appId.empty()) {
-            auto countIt{self.appIdCount->find(appId)};
-
-            if (--countIt->second == 0) {
-                self.appIdCount->erase(countIt);
-
-                if (self.events.appClosed && *self.events.appClosed)
-                    (*self.events.appClosed)(appId);
-            }
-        }
-
-        self.handleAppIds.erase(it);
-    }
-
+    handleClosedCleanup(self.handleAppIds, self.appIdCount, self.events, handle);
     ext_foreign_toplevel_handle_v1_destroy(handle);
 }
 
@@ -121,54 +134,40 @@ void WlrForeignBackend::onHandleAppId(void* data,
                                       zwlr_foreign_toplevel_handle_v1* handle,
                                       const char* appId) {
     auto& self{*static_cast<WlrForeignBackend*>(data)};
-    auto& current{self.handleAppIds[handle]};
+    handleAppIdUpdate(self.handleAppIds, self.appIdCount, self.events, handle,
+                      appId);
+}
 
-    if (!current.empty()) {
-        auto it{self.appIdCount->find(current)};
+void WlrForeignBackend::onHandleState(void* data,
+                                      zwlr_foreign_toplevel_handle_v1* handle,
+                                      wl_array* state) {
+    auto& self{*static_cast<WlrForeignBackend*>(data)};
 
-        if (it != self.appIdCount->end()) {
-            if (--it->second == 0) {
-                self.appIdCount->erase(it);
-
-                if (self.events.appClosed && *self.events.appClosed)
-                    (*self.events.appClosed)(current);
+    bool active{false};
+    if (state && state->size > 0 && state->data != nullptr) {
+        for (const uint32_t* entry = static_cast<const uint32_t*>(state->data);
+             reinterpret_cast<const char*>(entry) <
+             reinterpret_cast<const char*>(state->data) + state->size;
+             ++entry) {
+            if (*entry == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) {
+                active = true;
+                break;
             }
         }
     }
 
-    current = appId;
-
-    auto& count{(*self.appIdCount)[current]};
-
-    ++count;
-
-    if (self.events.appOpened && *self.events.appOpened)
-        (*self.events.appOpened)(current);
+    if (active) {
+        self.activeHandles.insert(handle);
+    } else {
+        self.activeHandles.erase(handle);
+    }
 }
 
 void WlrForeignBackend::onHandleClosed(
     void* data, zwlr_foreign_toplevel_handle_v1* handle) {
     auto& self{*static_cast<WlrForeignBackend*>(data)};
 
-    if (auto it{self.handleAppIds.find(handle)};
-        it != self.handleAppIds.end()) {
-        const auto appId{it->second};
-
-        if (!appId.empty()) {
-            auto countIt{self.appIdCount->find(appId)};
-
-            if (countIt != self.appIdCount->end()) {
-                if (--countIt->second == 0) {
-                    self.appIdCount->erase(countIt);
-
-                    if (self.events.appClosed && *self.events.appClosed)
-                        (*self.events.appClosed)(appId);
-                }
-            }
-        }
-
-        self.handleAppIds.erase(it);
-    }
-
+    self.activeHandles.erase(handle);
+    handleClosedCleanup(self.handleAppIds, self.appIdCount, self.events, handle);
     zwlr_foreign_toplevel_handle_v1_destroy(handle);
 }

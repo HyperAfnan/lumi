@@ -15,9 +15,7 @@ struct DockRect {
     bool operator==(const DockRect&) const = default;
 };
 
-float getDockRestingWidth();
 float getDockVisualHeight();
-float getDockAnimatedWidth();
 
 DockRect calculateDockInputRegion(int surfaceWidth, int surfaceHeight,
                                   float slideOffset, bool autoHideEnabled,
